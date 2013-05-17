@@ -323,6 +323,8 @@ SCIP_RETCODE setupProblem(
 	   j++;
    }
    
+   /* neuer Kommentar */
+
 
    /* release variables */
    SCIP_CALL( SCIPreleaseVar(scip, &newvar) );
