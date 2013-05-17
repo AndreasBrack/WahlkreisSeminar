@@ -182,6 +182,13 @@ Bundesland grReadIn(string filename)
   return B;
 }
 
+int idtoid(Bundesland B, long int id)
+{
+	for(int i = 0; i < B.staedte.size(); i++)
+		if(B.staedte[i].id == id)
+			return i;
+	exit(-1);
+}
 
 string convertinttostring(int i)
 {
@@ -199,35 +206,28 @@ SCIP_RETCODE setupProblem(
    int 					 nwahlkreise
    )
 {
+	int i;
 
 	SCIP_VAR* newvar;
 	SCIP_VAR* newyvar;
-	SCIP_CONS* cons;
 
-	SCIP_VAR** vars;
-	SCIP_Real* vals;
-
-
-
-	int i;
-
-	long int* wids;
+	SCIP_VAR** yvars;
 	SCIP_Var** wvars;
+	vector< vector<SCIP_Var*> >xvars;
+	xvars.resize(B.staedte.size());
 
-	/* storage for the yvars */
-	SCIP_Var** yvars;
+	SCIP_CONS* cons;
+	SCIP_Real* vals;
+	long int* wids;
 
-	SCIP_CALL( SCIPallocMemoryArray(scip, &vars, B.staedte.size()) );
+	/* allocate memory */
+	SCIP_CALL( SCIPallocMemoryArray(scip, &yvars, B.staedte.size()) );
 	SCIP_CALL( SCIPallocMemoryArray(scip, &vals, B.staedte.size()) );
-
 	SCIP_CALL( SCIPallocMemoryArray(scip, &wids, B.staedte.size()) );
-	SCIP_CALL( SCIPallocMemoryArray(scip, &wvars, B.staedte.size()) );
-	SCIP_CALL( SCIPallocMemoryArray(scip, &wvars, B.staedte.size())*nwahlkreise );
+	SCIP_CALL( SCIPallocMemoryArray(scip, &wvars, B.staedte.size()*nwahlkreise ) );
 
 	/* create empty problem */
 	SCIP_CALL( SCIPcreateProbBasic(scip, "Wahlkreise") );
-
-
 
 	/* create variables and add to problem */
 	for(i = 0; i < nwahlkreise; i++)
@@ -250,44 +250,47 @@ SCIP_RETCODE setupProblem(
 
 		for(vector<Grenze>::iterator it2 = B.grenzen.begin(); it2 != B.grenzen.end(); ++it2)
 		{
-			/* sind it1 und it2 im selben Wahlkreis und benachbart? */
+			/* Erstellen der x vars: sind it1 und it2 im selben Wahlkreis und benachbart? */
 			SCIP_CALL( SCIPcreateVarBasic(scip, &newvar,
 					("x" + it2->s1->name + "_" + it2->s2->name + "_" + convertinttostring(i)).c_str(),
 					0, 1, 0.0, SCIP_VARTYPE_BINARY) );
 			SCIP_CALL( SCIPaddVar(scip, newvar) );
 
+			/* Vorbereitung auf ? Constraints */
+			xvars[idtoid(B, it2->s1->id)].push_back(newvar);
+			xvars[idtoid(B, it2->s2->id)].push_back(newvar);
+
+			/* x(i,j,w) < y(i, w) */
 			for(int i = 0; i < B.staedte.size(); i++)
 				if(wids[i] == it2->s1->id)
 					newyvar = wvars[i];
 
-			vars[0] = newvar;
+			yvars[0] = newvar;
 			vals[0] = -1;
-			vars[1] = newyvar;
+			yvars[1] = newyvar;
 			vals[1] = 1;
 
-			/* x(i,j,w) < y(i, w) */
 			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
 					("x" + it2->s1->name + it2->s2->name + "_" +  convertinttostring(i) + " < y" + it2->s1->name + "_" +  convertinttostring(i) ).c_str(),
-					2,vars, vals, 0, 2, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+					2,yvars, vals, 0, 2, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 			SCIP_CALL( SCIPaddCons(scip, cons) );
 
 			for(int i = 0; i < B.staedte.size(); i++)
 				if(wids[i] == it2->s2->id)
 					newyvar = wvars[i];
 
-			vars[0] = newvar;
-			vals[0] = -1;
-			vars[1] = newyvar;
-			vals[1] = 1;
 
 			/* x(i,j,w) < y(j, w) */
+			yvars[0] = newvar;
+			vals[0] = -1;
+			yvars[1] = newyvar;
+			vals[1] = 1;
+
 			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
 					("x" + it2->s1->name + it2->s2->name + "_" +  convertinttostring(i) + " < y" + it2->s2->name + "_" +  convertinttostring(i) ).c_str(),
-					2,vars, vals, 0, 2, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+					2,yvars, vals, 0, 2, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 			SCIP_CALL( SCIPaddCons(scip, cons) );
-
 		}
-
 	}
 
    for(i = 0; i < nwahlkreise; i++)
@@ -307,23 +310,35 @@ SCIP_RETCODE setupProblem(
    int j = 0;
    for(vector<Stadt>::iterator it = B.staedte.begin(); it != B.staedte.end(); ++it)
    {
-	   for(int i = 0; i < nwahlkreise; i++)
+	   for(i = 0; i < nwahlkreise; i++)
 	   {
-		   vars[i] = yvars[i + j * nwahlkreise];
+		   yvars[i] = yvars[i + j * nwahlkreise];
 		   vals[i] = 1;
 	   }
 
 	   /* Stadt kommt in genau einem Wahlkreis vor */
 	   SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
 			   ("Stadt " + it->name + "hatWK").c_str(),
-			   nwahlkreise, vars, vals, 1, 1, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+			   nwahlkreise, yvars, vals, 1, 1, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 	   SCIP_CALL( SCIPaddCons(scip, cons) );
 
 	   j++;
    }
    
-   /* neuer Kommentar */
-   /* neuer Kommentar 2*/
+   /* Fragezeichen Constraints */
+   for(i = 0; i < B.staedte.size(); i++)
+	   vals[i] = 1;
+
+   for(i = 0; i < B.staedte.size(); i++)
+   {
+	   wvars = &(xvars[i]);
+	   SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+			   (convertinttostring(B.staedte[i].id) + "?-cons").c_str(), xvars[i].size(),
+			   wvars, vals, 1, SCIPinfinity(scip),
+			   TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE) );
+	   SCIP_CALL( SCIPaddCons(scip, cons) );
+   }
+
 
 
    /* release variables */
