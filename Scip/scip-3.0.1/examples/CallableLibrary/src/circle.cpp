@@ -90,7 +90,6 @@ struct Bundesland
   vector<Grenze> grenzen;
 };
 
-
 Bundesland grReadIn(string filename)
 {
   Bundesland B;
@@ -324,6 +323,7 @@ SCIP_RETCODE setupProblem(
    }
    
    /* neuer Kommentar */
+   /* neuer Kommentar 2*/
 
 
    /* release variables */
