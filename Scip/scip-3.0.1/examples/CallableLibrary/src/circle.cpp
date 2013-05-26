@@ -1,34 +1,13 @@
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/*                                                                           */
-/*                  This file is part of the program and library             */
-/*         SCIP --- Solving Constraint Integer Programs                      */
-/*                                                                           */
-/*    Copyright (C) 2002-2013 Konrad-Zuse-Zentrum                            */
-/*                            fuer Informationstechnik Berlin                */
-/*                                                                           */
-/*  SCIP is distributed under the terms of the ZIB Academic License.         */
-/*                                                                           */
-/*  You should have received a copy of the ZIB Academic License              */
-/*  along with SCIP; see the file COPYING. If not email to scip@zib.de.      */
-/*                                                                           */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
-/**@file   circle.cpp
+/**
+ * @file   circle.cpp
  * @brief  Solving the Wahlkreis Problem
  * @author Andreas Brack
+ * @author Sebastian Goderbauer
+ * @author Markus Kruber
  *
- * This example shows how to setup second-order-cone constraints in SCIP when using SCIP as callable library.
- * The example implements a model for the computation of a smallest circle that contains a number of given points
- * in the plane.
  *
- * The model is taken from the GAMS model library:
- * http://www.gams.com/modlib/libhtml/circle.htm
+ * This program solves the constituency problem by solving an mixed integer linear program.
  *
- * See also: http://en.wikipedia.org/wiki/Smallest_circle_problem
- *
- * Given n points in the plane with coordinates \f$(x_i, y_i)\f$, the task is to find a coordinates \f$(a,b)\f$
- * and a minimal radius \f$r \geq 0\f$, such that \f$\sqrt{(x_i-a)^2 + (y_i-b)^2} \leq r\f$.
- * The latter are second-order-cone constraints.
  */
 
 /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
@@ -41,7 +20,6 @@
 #include <cstring>
 #include <stdio.h>
 #include <stdlib.h>
-
 #include <vector>
 
 
@@ -71,7 +49,7 @@ struct Stadt
 
 	void drucke()
 	{
-		// cout << "\n\nDrucke Stadt\nName = " << name << "\nid = " << id << "\n";
+		cout << "\n\nDrucke Stadt\nName = " << name << "\nid = " << id << "\n";
 	}
 };
 
@@ -91,6 +69,7 @@ struct Bundesland
 {
 	vector<Stadt> staedte;
 	vector<Grenze> grenzen;
+
 	void drucke()
 	{
 		for(vector<Stadt>::iterator it = staedte.begin(); it != staedte.end(); ++it)
@@ -189,7 +168,6 @@ Bundesland gidoIn(string filename)
 			}
 		}
 	}
-	SCIPdebugMessage("verlasse gidoin\n");
 #ifdef SCIP_DEBUG
 	B.drucke();
 #endif
@@ -219,7 +197,7 @@ SCIP_RETCODE setupProblem(
 		SCIP*                 		scip,                /**< SCIP data structure */
 		Bundesland			 		B,
 		int 					 	nwahlkreise
-		)
+)
 {
 	SCIPdebugMessage("betrete setup\n");
 
@@ -251,10 +229,9 @@ SCIP_RETCODE setupProblem(
 	xvars.resize(B.staedte.size());
 
 	vector<SCIP_Var*> xwahlkreisvars;		/** xvariablen pro Wahlkreis
-											  * die jeweils ersten (Anzahl der staedte) Variablem
-											  * sind die y variablen, danach die x Vars.
-											  */
-
+	 * die jeweils ersten (Anzahl der staedte) Variablem
+	 * sind die y variablen, danach die x Vars.
+	 */
 
 
 	/* allocate memory */
@@ -271,8 +248,6 @@ SCIP_RETCODE setupProblem(
 	SCIP_CALL( SCIPallocBufferArray(scip, &population, B.staedte.size()) );
 
 
-	SCIPdebugMessage("Allocated\n");
-
 	/* assign static values */
 	aconsvals[0] =  1;
 	aconsvals[1] = -1;
@@ -281,7 +256,6 @@ SCIP_RETCODE setupProblem(
 	xleqyvals[1] = 1;
 	population[B.staedte.size()    ] = - avg;
 	population[B.staedte.size() + 1] = - avg;
-
 
 
 	/* create empty problem */
@@ -305,7 +279,7 @@ SCIP_RETCODE setupProblem(
 	/* create variables and add to problem */
 	for(int aktwk = 0; aktwk < nwahlkreise; aktwk++)
 	{
-		SCIPdebugMessage("i = %d\n", aktwk);
+
 		/* a_pos(aktwk) */
 		SCIP_CALL( SCIPcreateVarBasic(scip, &newvar, ("a_pos"+convertinttostring(aktwk)).c_str(), 0, SCIPinfinity(scip),
 				0.0, SCIP_VARTYPE_CONTINUOUS) );
@@ -335,7 +309,6 @@ SCIP_RETCODE setupProblem(
 				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 		SCIP_CALL( SCIPaddCons(scip, cons) );
 
-		SCIPdebugMessage("erste innere for Schleife");
 		int numstadt = 0;
 		for(vector<Stadt>::iterator it = B.staedte.begin(); it != B.staedte.end(); ++it)
 		{
@@ -344,12 +317,14 @@ SCIP_RETCODE setupProblem(
 			SCIP_CALL( SCIPcreateVarBasic(scip, &newyvar,
 					("y" + it->name + "_" +  convertinttostring(aktwk)).c_str(),
 					0, 1, 0.0, SCIP_VARTYPE_BINARY) );
+
 #ifdef SCIP_DEBUG
 			cout << "erzeuge y Variable für" << endl;
 			it->drucke();
 			SCIPdebugMessage(("y" + it->name + "_" +  convertinttostring(aktwk)+"\n").c_str(), aktwk);
 			SCIPprintVar(scip, newyvar, file);
 #endif
+
 			SCIP_CALL( SCIPaddVar(scip, newyvar) );
 
 			/* store the pointer */
@@ -358,12 +333,6 @@ SCIP_RETCODE setupProblem(
 			population[numstadt] = it->bewohner;
 			numstadt++;
 		}
-		SCIPdebugMessage("... beendet \n");
-
-
-		/* bisher xwahlkreisvars: die ersten numstaedte voll mit den y vars.
-		 * Also die letzten beiden variablen kurzzeitig mit a_pos und a_neg fuellen
-		 *  */
 
 
 		SCIP_Var** tmpvars;
@@ -375,7 +344,6 @@ SCIP_RETCODE setupProblem(
 		tmpvars[B.staedte.size()] = apos;
 		tmpvars[B.staedte.size()+1] = aneg;
 
-		SCIPdebugMessage("erster Zwischenschritt\n");
 #ifdef SCIP_DEBUG
 		for(unsigned int it = 0; it < B.staedte.size() + 2; it++)
 		{
@@ -387,11 +355,8 @@ SCIP_RETCODE setupProblem(
 				("ausgeglichenheit("+ convertinttostring(aktwk) +")").c_str(),
 				B.staedte.size() + 2, tmpvars, population, 0, SCIPinfinity(scip) ,
 				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-
-
 		SCIP_CALL( SCIPaddCons(scip, cons) );
 
-		SCIPdebugMessage("2 ter Zwischenschritt: nun 2tes for\n");
 
 		for(vector<Grenze>::iterator it2 = B.grenzen.begin(); it2 != B.grenzen.end(); ++it2)
 		{
@@ -437,7 +402,7 @@ SCIP_RETCODE setupProblem(
 			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
 					("x" + it2->s1->name + it2->s2->name + "_" +  convertinttostring(aktwk) +
 							" < y" + it2->s2->name + "_" +  convertinttostring(aktwk) ).c_str(),
-					2, xleqycons, xleqyvals, 0, 2, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+							2, xleqycons, xleqyvals, 0, 2, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 			SCIP_CALL( SCIPaddCons(scip, cons) );
 		}
 
@@ -455,9 +420,7 @@ SCIP_RETCODE setupProblem(
 		xwahlkreisvars.clear();
 	}
 
-	SCIPdebugMessage("Auch aeußeres for beendet\n");
-	
-	/* Stadt kommt in genau einem Wahlkreis vor */
+	/* Town appears in exact one Constituency */
 	int numstadt = 0;
 	for(vector<Stadt>::iterator it = B.staedte.begin(); it != B.staedte.end(); ++it)
 	{
@@ -474,7 +437,7 @@ SCIP_RETCODE setupProblem(
 		numstadt++;
 	}
 
-	/* Fragezeichen Constraints */
+	/* Questionmark Constraints */
 	for(unsigned int i = 0; i < B.staedte.size(); i++)
 		questionvals[i] = 1;
 
