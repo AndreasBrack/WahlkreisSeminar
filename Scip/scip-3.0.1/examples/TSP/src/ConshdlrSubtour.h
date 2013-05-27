@@ -13,8 +13,8 @@
 /*                                                                           */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-/**@file   ConshdlrSubtour.h
- * @brief  C++ constraint handler for TSP subtour elimination constraints
+/**@file   ConshdlrSubtree.h
+ * @brief  C++ constraint handler for TSP subtree elimination constraints
  * @author Timo Berthold
  */
 
@@ -30,23 +30,23 @@
 namespace tsp
 {
 
-/** C++ constraint handler for TSP subtour elimination constraints */
-class ConshdlrSubtour : public scip::ObjConshdlr
+/** C++ constraint handler for TSP subtree elimination constraints */
+class ConshdlrSubtree : public scip::ObjConshdlr
 {
 
 public:
    /** default constructor */
-   ConshdlrSubtour(
+   ConshdlrSubtree(
       SCIP* scip
       )
-      : ObjConshdlr(scip, "subtour", "TSP subtour elimination constraints",
+      : ObjConshdlr(scip, "subtree", "TSP subtree elimination constraints",
          1000000, -2000000, -2000000, 1, -1, 1, 0,
          FALSE, FALSE, FALSE, TRUE, SCIP_PROPTIMING_BEFORELP)
    {
    }
 
    /** destructor */
-   virtual ~ConshdlrSubtour()
+   virtual ~ConshdlrSubtree()
    {
    }
 
@@ -290,8 +290,8 @@ public:
    virtual SCIP_DECL_CONSCOPY(scip_copy);
 };
 
-/** creates and captures a TSP subtour constraint */
-SCIP_RETCODE SCIPcreateConsSubtour(
+/** creates and captures a TSP subtree constraint */
+SCIP_RETCODE SCIPcreateConsSubtree(
    SCIP*                 scip,               /**< SCIP data structure */
    SCIP_CONS**           cons,               /**< pointer to hold the created constraint */
    const char*           name,               /**< name of constraint */
