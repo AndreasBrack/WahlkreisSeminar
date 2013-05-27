@@ -191,6 +191,17 @@ string convertinttostring(const int i)
 }
 
 
+double getavg(Bundesland B, int nwahlkreise)
+{
+	int gesamtbewohner = 0;
+	for(vector<Stadt>::iterator st = B.staedte.begin(); st != B.staedte.end(); ++st )
+	{
+		gesamtbewohner += st->bewohner;
+	}
+
+	return ((double) gesamtbewohner) / ((double) nwahlkreise);
+}
+
 /** sets up problem */
 static
 SCIP_RETCODE setupProblem(
@@ -205,7 +216,7 @@ SCIP_RETCODE setupProblem(
 	FILE* file = fopen("debug.txt", "w");
 #endif
 
-	double avg = 42;
+	double avg = getavg(B, nwahlkreise);
 
 	SCIP_CONS* cons;
 
@@ -357,6 +368,7 @@ SCIP_RETCODE setupProblem(
 				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 		SCIP_CALL( SCIPaddCons(scip, cons) );
 
+		SCIPfreeBufferArray(scip, tmpvars);
 
 		for(vector<Grenze>::iterator it2 = B.grenzen.begin(); it2 != B.grenzen.end(); ++it2)
 		{
