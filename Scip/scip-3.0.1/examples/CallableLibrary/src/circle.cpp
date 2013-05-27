@@ -12,17 +12,72 @@
 
 /*--+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
 
-// #define SCIP_DEBUG
+//#define SCIP_DEBUG
+
+#include <sstream>
+#include <iostream>
+#include <fstream>
+#include <cstring>
+#include <stdio.h>
+#include <stdlib.h>
+#include <vector>
+
 
 #include "scip/scip.h"
 #include "scip/scipdefplugins.h"
-#include "ConshdlrSubtree.h"
 
+using namespace std;
 
-using namespace tree;
-using namespace scip;
+struct Stadt
+{
+	long int id;
+	string name;
+	double xk;
+	double yk;
+	int kreisid;
+	int bewohner;
 
+	Stadt(long int iid, string iname, double ixk, double iyk, int ikreisid, int ibewohner)
+	{
+		this->id = iid;
+		this->name = iname;
+		this->xk = ixk;
+		this->yk = iyk;
+		this->kreisid = ikreisid;
+		this->bewohner = ibewohner;
+	}
 
+	void drucke()
+	{
+		cout << "\n\nDrucke Stadt\nName = " << name << "\nid = " << id << "\n";
+	}
+};
+
+struct Grenze
+{
+	Stadt* s1;
+	Stadt* s2;
+
+	Grenze(Stadt* is1, Stadt* is2)
+	{
+		this->s1 = is1;
+		this->s2 = is2;
+	}
+};
+
+struct Bundesland
+{
+	vector<Stadt> staedte;
+	vector<Grenze> grenzen;
+
+	void drucke()
+	{
+		for(vector<Stadt>::iterator it = staedte.begin(); it != staedte.end(); ++it)
+		{
+			it->drucke();
+		}
+	}
+};
 
 Bundesland gidoIn(string filename)
 {
@@ -135,17 +190,6 @@ string convertinttostring(const int i)
 	return ss.str();
 }
 
-double getxobj(Grenze e)
-{
-	SCIP_Real pen0 = 0;
-	SCIP_Real pen1 = 25;
-
-	if(e.s1->kreisid != e.s2->kreisid)
-		return pen1;
-	else
-		return pen0;
-}
-
 
 double getavg(Bundesland B, int nwahlkreise)
 {
@@ -166,13 +210,6 @@ SCIP_RETCODE setupProblem(
 		int 					 	nwahlkreise
 )
 {
-	SCIP_Real f0 = 1;
-	SCIP_Real f1 = 2;
-	SCIP_Real ungleichheit = 0.15;
-
-
-
-
 	SCIPdebugMessage("betrete setup\n");
 
 #ifdef SCIP_DEBUG
@@ -236,7 +273,7 @@ SCIP_RETCODE setupProblem(
 	SCIP_CALL( SCIPcreateProbBasic(scip, "Wahlkreise") );
 
 	/* Erzeuge a_max, a_pos und a_neg und verknüpfe sie. */
-	SCIP_CALL( SCIPcreateVarBasic(scip, &newvar, "a_max", 0, SCIPinfinity(scip), f1, SCIP_VARTYPE_CONTINUOUS) );
+	SCIP_CALL( SCIPcreateVarBasic(scip, &newvar, "a_max", 0, SCIPinfinity(scip), 0.0, SCIP_VARTYPE_CONTINUOUS) );
 #ifdef SCIP_DEBUG
 	SCIPdebugPrintf("Amax \n");
 	SCIPprintVar(scip, newvar, file);
@@ -246,7 +283,7 @@ SCIP_RETCODE setupProblem(
 
 	SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
 			"a_max <  0.15",
-			1, acons, aconsvals, 0, ungleichheit , TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+			1, acons, aconsvals, 0, 0.15 , TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 	SCIP_CALL( SCIPaddCons(scip, cons) );
 
 	SCIPdebugMessage("For Schleife\n");
@@ -342,7 +379,7 @@ SCIP_RETCODE setupProblem(
 			/* Erstellen der x vars: sind it1 und it2 im selben Wahlkreis und benachbart? */
 			SCIP_CALL( SCIPcreateVarBasic(scip, &newvar,
 					("x" + it2->s1->name + "_" + it2->s2->name + "_" + convertinttostring(aktwk)).c_str(),
-					0, 1, f0*getxobj(*it2), SCIP_VARTYPE_BINARY) );
+					0, 1, 0.0, SCIP_VARTYPE_BINARY) );
 #ifdef SCIP_DEBUG
 			SCIPdebugMessage(("x" + it2->s1->name + "_" + it2->s2->name + "_" + convertinttostring(aktwk) + "\n").c_str(), aktwk);
 			SCIPprintVar(scip, newyvar, file);
@@ -455,13 +492,9 @@ SCIP_RETCODE runCircle(void)
 {
 	SCIP* scip;
 
-
-
 	SCIP_CALL( SCIPcreate(&scip) );
 
 	SCIP_CALL( SCIPincludeDefaultPlugins(scip) );
-    SCIP_CALL( SCIPincludeObjConshdlr(scip, new ConshdlrSubtree(scip), TRUE) );
-
 
 	SCIPinfoMessage(scip, NULL, "\n");
 	SCIPinfoMessage(scip, NULL, "*********************************************\n");
@@ -472,8 +505,12 @@ SCIP_RETCODE runCircle(void)
 
 	Bundesland B = gidoIn("Saarland.gido");
 
-	SCIP_CALL( setupProblem(scip, B, 3) );
+	SCIP_CALL( setupProblem(scip, B, 12) );
 
+
+	FILE* file = fopen("debug.txt", "w");
+	SCIPinfoMessage(scip, NULL, "Original problem:\n");
+	SCIP_CALL( SCIPprintOrigProblem(scip, file, NULL, FALSE) );
 
 	SCIPinfoMessage(scip, NULL, "\nSolving...\n");
 	SCIP_CALL( SCIPsolve(scip) );
