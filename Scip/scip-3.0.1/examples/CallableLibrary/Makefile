@@ -15,7 +15,7 @@
 
 #@file    Makefile
 #@brief   Makefile for SCIP callable library example project
-#@author  Stefan Vigerske
+#@author  Stefan Vigerske and Wahlkreisteam
 
 
 #-----------------------------------------------------------------------------
