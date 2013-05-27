@@ -18,6 +18,8 @@
 #@author  Thorsten Koch
 #@author  Tobias Achterberg
 #@author  Marc Pfetsch
+#@brief   Makefile for SCIP callable library example project
+#@author  Stefan Vigerske and Wahlkreisteam
 
 
 #-----------------------------------------------------------------------------
