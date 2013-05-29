@@ -17,117 +17,6 @@
 
 using namespace std;
 
-struct Stadt
-{
-	long int id;
-	string name;
-	double xk;
-	double yk;
-	int kreisid;
-	int bewohner;
-	GRAPHNODE* node;
-
-	Stadt(long int iid, string iname, double ixk, double iyk, int ikreisid, int ibewohner)
-	{
-		this->id = iid;
-		this->name = iname;
-		this->xk = ixk;
-		this->yk = iyk;
-		this->kreisid = ikreisid;
-		this->bewohner = ibewohner;
-
-	}
-
-	void drucke()
-	{
-		cout << "\n\nDrucke Stadt\nName = " << name << "\nid = " << id << "\n";
-	}
-
-	int getBewohner() const {
-		return bewohner;
-	}
-
-	void setBewohner(int bewohner) {
-		this->bewohner = bewohner;
-	}
-
-	long int getId() const {
-		return id;
-	}
-
-	void setId(long int id) {
-		this->id = id;
-	}
-
-	int getKreisid() const {
-		return kreisid;
-	}
-
-	void setKreisid(int kreisid) {
-		this->kreisid = kreisid;
-	}
-
-	const string& getName() const {
-		return name;
-	}
-
-	void setName(const string& name) {
-		this->name = name;
-	}
-
-
-	double getXk() const {
-		return xk;
-	}
-
-	void setXk(double xk) {
-		this->xk = xk;
-	}
-
-	double getYk() const {
-		return yk;
-	}
-
-	void setYk(double yk) {
-		this->yk = yk;
-	}
-
-	const GRAPHNODE*& getNode() const {
-		return node;
-	}
-
-	void setNode(const GRAPHNODE*& node) {
-		this->node = node;
-	}
-};
-
-struct Grenze
-{
-	Stadt* s1;
-	Stadt* s2;
-
-	Grenze(Stadt* is1, Stadt* is2)
-	{
-		this->s1 = is1;
-		this->s2 = is2;
-	}
-};
-
-struct Bundesland
-{
-	vector<Stadt> staedte;
-	vector<Grenze> grenzen;
-
-	void drucke()
-	{
-		for(vector<Stadt>::iterator it = staedte.begin(); it != staedte.end(); ++it)
-		{
-			it->drucke();
-		}
-	}
-};
-
-
 namespace tree
 {
 
@@ -396,7 +285,6 @@ SCIP_RETCODE SCIPcreateConsSubtree(
    SCIP*                 scip,               /**< SCIP data structure */
    SCIP_CONS**           cons,               /**< pointer to hold the created constraint */
    const char*           name,               /**< name of constraint */
-   Bundesland*           B, 	             /**< the underlying graph */
    Graph*				 graph,  		     /**< the underlying graph */
    SCIP_Bool             initial,            /**< should the LP relaxation of constraint be in the initial LP? */
    SCIP_Bool             separate,           /**< should the constraint be separated during LP processing? */

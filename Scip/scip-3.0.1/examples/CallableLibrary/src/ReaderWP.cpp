@@ -150,81 +150,7 @@ SCIP_DECL_READERFREE(ReaderWP::scip_free)
  */
 SCIP_DECL_READERREAD(ReaderWP::scip_read)
 {
-   SCIP_RETCODE retcode;
 
-   Bundesland B = NULL;
-
-   GRAPH* graph = NULL;
-   GRAPHNODE* node;
-   GRAPHNODE* nodestart;             // the two incident nodes of an edge
-   GRAPHNODE* nodeend;
-   GRAPHEDGE* edgeforw;              // two converse halfedges
-   GRAPHEDGE* edgebackw;
-   GRAPHEDGE* edge;
-
-   double*  x_coords = NULL;                 // arrays of coordinates of the nodes
-   double*  y_coords = NULL;
-
-#ifdef SCIP_DEBUG
-   double** weights = NULL;
-#endif
-
-   double x;                         // concrete coordinates
-   double y;
-
-   int nnodes = 0;
-   int nedges = 0;
-   int i;
-   int j;
-
-   string name = "MY_OWN_LITTLE_WP";
-   string token;
-   string type = "WP";
-   string edgeweighttype = "EUC_2D";
-
-   retcode = SCIP_OKAY;
-   *result = SCIP_DIDNOTRUN;
-
-   // open the file
-   ifstream filedata(filename);
-   if( !filedata )
-      return SCIP_READERROR;
-   filedata.clear();
-
-   // read the first lines of information
-   filedata >> token;
-   while( !filedata.eof() )
-   {
-      if( token == "NAME:" )
-         filedata >> name;
-      else if( token == "NAME" )
-         filedata >> token >> name;
-      else if( token == "TYPE:" )
-         filedata >> type;
-      else if( token == "TYPE" )
-         filedata >> token >> type;
-      else if( token == "DIMENSION:" )
-      {
-         filedata >> nnodes;
-         nedges = nnodes * (nnodes-1);
-      }
-      else if( token == "DIMENSION" )
-      {
-         filedata >> token >> nnodes;
-         nedges = nnodes * (nnodes-1);
-      }
-      else if( token == "EDGE_WEIGHT_TYPE:" )
-         filedata >> edgeweighttype;
-      else if( token == "EDGE_WEIGHT_TYPE" )
-         filedata >> token >> edgeweighttype;
-      else if( token == "NODE_COORD_SECTION" || token == "DISPLAY_DATA_SECTION" )
-      {
-         // there should be some nodes to construct a graph
-         if( nnodes < 1 )
-         {
-            retcode = SCIP_READERROR;
-            break;
-         }
          // the graph is created and filled with nodes
          else if( create_graph(nnodes, nedges, &graph) )
          {
@@ -240,22 +166,6 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
             retcode = SCIP_NOMEMORY;
             break;
          }
-      }
-      else if( token == "COMMENT:" || token == "COMMENT" ||
-         token == "DISPLAY_DATA_TYPE" || token == "DISPLAY_DATA_TYPE:" )
-         getline( filedata, token );
-      else if( token == "EOF" )
-         break;
-      else if( token == "" )
-         ;
-      else
-      {
-         cout << "parse error in file <" << name << "> unknown keyword <" << token << ">" << endl;
-         return SCIP_READERROR;
-      }
-      filedata >> token;
-   }// finished parsing the input
-
    if( retcode == SCIP_OKAY )
    {
       edgeforw = &( graph->edges[0] );
@@ -472,3 +382,116 @@ SCIP_DECL_READERWRITE(ReaderWP::scip_write)
 
    return SCIP_OKAY;
 }
+
+
+
+
+
+Bundesland gidoIn(string filename, Graph*, Bundesland*, )
+{
+   SCIP_RETCODE retcode;
+
+	SCIPdebugMessage("betrete gidoin\n");
+	Bundesland B;
+	   GRAPH* graph = NULL;
+	   GRAPHNODE* node;
+	   GRAPHNODE* nodestart;             // the two incident nodes of an edge
+	   GRAPHNODE* nodeend;
+	   GRAPHEDGE* edgeforw;              // two converse halfedges
+	   GRAPHEDGE* edgebackw;
+	   GRAPHEDGE* edge;
+
+
+
+
+	string id;
+	long int iid;
+
+	string line;
+	string name;
+
+	string xkood;
+	double dxkood;
+
+	string ykood;
+	double dykood;
+
+	string kreisid;
+	int ikreisid;
+	string bewohner;
+	int ibewohner;
+
+	string idStart;
+	long int iidStart;
+	string idTarget;
+	long int iidTarget;
+
+	string tmp;
+
+	ifstream file;
+	stringstream str;
+
+	file.open (filename.c_str());
+	if ( (file.rdstate() & ifstream::failbit ) != 0 ){
+		cerr << "Error opening " << filename << endl;
+		return SCIP_READERROR;
+	}
+	while(!file.eof())
+	{
+		getline(file, tmp, ',');
+
+		if(tmp[0] == '#')
+		{
+			continue;
+		}
+
+		else if(tmp[0] == 'v')
+		{
+			getline(file, id, ',');
+			iid =  atol(id.c_str());
+			getline(file, name, ',');
+			getline(file, xkood, ',');
+			dxkood = strtod(xkood.c_str(), NULL);
+			getline(file, ykood, ',');
+			dykood = strtod(ykood.c_str(), NULL);
+			getline(file, kreisid, ',');
+			ikreisid = atoi(kreisid.c_str());
+			getline(file, bewohner);
+			ibewohner = atoi(bewohner.c_str());
+
+			Stadt* s = new Stadt(iid, name, dxkood, dykood, ikreisid, ibewohner);
+			B.staedte.push_back(*s);
+		}
+
+		else if(tmp[0] == 'e')
+		{
+			Grenze* e;
+			Stadt* s1 = NULL;
+			Stadt* s2 = NULL;
+
+			getline(file, idStart, ',');
+			iidStart = atol(idStart.c_str());
+			getline(file, idTarget);
+			iidTarget = atol(idTarget.c_str());
+
+			for(vector<Stadt>::iterator it = B.staedte.begin(); it != B.staedte.end(); ++it)
+			{
+				if((*it).id == iidStart)
+					s1 = &(*it);
+				if((*it).id == iidTarget)
+					s2 = &(*it);
+			}
+
+			if(s1 != NULL && s2 != NULL)
+			{
+				e = new Grenze(s1, s2);
+				B.grenzen.push_back(*e);
+			}
+		}
+	}
+#ifdef SCIP_DEBUG
+	B.drucke();
+#endif
+	return B;
+}
+

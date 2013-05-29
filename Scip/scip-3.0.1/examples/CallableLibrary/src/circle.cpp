@@ -23,6 +23,7 @@
 #include <vector>
 
 
+#include "GomoryHuTree.h"
 #include "ConshdlrSubtree.h"
 #include "ReaderWP.h"
 #include "ProbDataWP.h"
@@ -32,100 +33,7 @@
 using namespace std;
 
 
-Bundesland gidoIn(string filename)
-{
-	SCIPdebugMessage("betrete gidoin\n");
-	Bundesland B;
-	string id;
-	long int iid;
 
-	string line;
-	string name;
-
-	string xkood;
-	double dxkood;
-
-	string ykood;
-	double dykood;
-
-	string kreisid;
-	int ikreisid;
-	string bewohner;
-	int ibewohner;
-
-	string idStart;
-	long int iidStart;
-	string idTarget;
-	long int iidTarget;
-
-	string tmp;
-
-	ifstream file;
-	stringstream str;
-
-	file.open (filename.c_str());
-	if ( (file.rdstate() & ifstream::failbit ) != 0 ){
-		cerr << "Error opening " << filename << endl;
-		exit(-1);
-	}
-	while(!file.eof())
-	{
-		getline(file, tmp, ',');
-
-		if(tmp[0] == '#')
-		{
-			continue;
-		}
-
-		else if(tmp[0] == 'v')
-		{
-			getline(file, id, ',');
-			iid =  atol(id.c_str());
-			getline(file, name, ',');
-			getline(file, xkood, ',');
-			dxkood = strtod(xkood.c_str(), NULL);
-			getline(file, ykood, ',');
-			dykood = strtod(ykood.c_str(), NULL);
-			getline(file, kreisid, ',');
-			ikreisid = atoi(kreisid.c_str());
-			getline(file, bewohner);
-			ibewohner = atoi(bewohner.c_str());
-
-			Stadt* s = new Stadt(iid, name, dxkood, dykood, ikreisid, ibewohner);
-			B.staedte.push_back(*s);
-		}
-
-		else if(tmp[0] == 'e')
-		{
-			Grenze* e;
-			Stadt* s1 = NULL;
-			Stadt* s2 = NULL;
-
-			getline(file, idStart, ',');
-			iidStart = atol(idStart.c_str());
-			getline(file, idTarget);
-			iidTarget = atol(idTarget.c_str());
-
-			for(vector<Stadt>::iterator it = B.staedte.begin(); it != B.staedte.end(); ++it)
-			{
-				if((*it).id == iidStart)
-					s1 = &(*it);
-				if((*it).id == iidTarget)
-					s2 = &(*it);
-			}
-
-			if(s1 != NULL && s2 != NULL)
-			{
-				e = new Grenze(s1, s2);
-				B.grenzen.push_back(*e);
-			}
-		}
-	}
-#ifdef SCIP_DEBUG
-	B.drucke();
-#endif
-	return B;
-}
 
 int idtoid(Bundesland B, long int id)
 {
