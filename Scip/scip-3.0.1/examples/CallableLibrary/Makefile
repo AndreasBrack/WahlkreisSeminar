@@ -26,7 +26,10 @@ include $(SCIPDIR)/make/make.project
 
 MAINNAME	=	circle
 MAINOBJ		=	circle.o \
-			ConshdlrSubtree.o
+				ConshdlrSubtree.o \
+				ReaderWP.o \
+				GomoryHuTree.o \
+				ProbDataWP.o
 MAINSRC		=	$(addprefix $(SRCDIR)/,$(MAINOBJ:.o=.cpp))
 MAINDEP		=	$(SRCDIR)/depend.cppmain.$(OPT)
 
