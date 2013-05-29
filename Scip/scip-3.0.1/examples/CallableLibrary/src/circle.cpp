@@ -23,61 +23,14 @@
 #include <vector>
 
 
+#include "ConshdlrSubtree.h"
+#include "ReaderWP.h"
+#include "ProbDataWP.h"
 #include "scip/scip.h"
 #include "scip/scipdefplugins.h"
 
 using namespace std;
 
-struct Stadt
-{
-	long int id;
-	string name;
-	double xk;
-	double yk;
-	int kreisid;
-	int bewohner;
-
-	Stadt(long int iid, string iname, double ixk, double iyk, int ikreisid, int ibewohner)
-	{
-		this->id = iid;
-		this->name = iname;
-		this->xk = ixk;
-		this->yk = iyk;
-		this->kreisid = ikreisid;
-		this->bewohner = ibewohner;
-	}
-
-	void drucke()
-	{
-		cout << "\n\nDrucke Stadt\nName = " << name << "\nid = " << id << "\n";
-	}
-};
-
-struct Grenze
-{
-	Stadt* s1;
-	Stadt* s2;
-
-	Grenze(Stadt* is1, Stadt* is2)
-	{
-		this->s1 = is1;
-		this->s2 = is2;
-	}
-};
-
-struct Bundesland
-{
-	vector<Stadt> staedte;
-	vector<Grenze> grenzen;
-
-	void drucke()
-	{
-		for(vector<Stadt>::iterator it = staedte.begin(); it != staedte.end(); ++it)
-		{
-			it->drucke();
-		}
-	}
-};
 
 Bundesland gidoIn(string filename)
 {

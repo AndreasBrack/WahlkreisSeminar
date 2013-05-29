@@ -479,6 +479,7 @@ SCIP_RETCODE tree::SCIPcreateConsSubtree(
    SCIP_CONS**           cons,               /**< pointer to hold the created constraint */
    const char*           name,               /**< name of constraint */
    Bundesland*           B,   	             /**< the underlying B */
+   Graph*				 graph				 /**< the underlying graph structure */
    SCIP_Bool             initial,            /**< should the LP relaxation of constraint be in the initial LP? */
    SCIP_Bool             separate,           /**< should the constraint be separated during LP processing? */
    SCIP_Bool             enforce,            /**< should the constraint be enforced during node processing? */
