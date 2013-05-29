@@ -35,10 +35,10 @@ using namespace std;
 
 
 
-int idtoid(Bundesland B, long int id)
+int idtoid(GRAPH G, int id)
 {
-	for(unsigned int i = 0; i < B.staedte.size(); i++)
-		if(B.staedte[i].id == id)
+	for(unsigned int i = 0; i < G.nnodes; i++)
+		if(G.nodes[i].stadtid == id)
 			return i;
 	exit(-1);
 }
@@ -63,12 +63,13 @@ int getwahlkreisid(SCIP_Var* var)
 }
 
 
-double getavg(Bundesland B, int nwahlkreise)
+double getavg(GRAPH G, int nwahlkreise)
 {
 	int gesamtbewohner = 0;
-	for(vector<Stadt>::iterator st = B.staedte.begin(); st != B.staedte.end(); ++st )
+
+	for ( unsigned int i = 0 ; i < G.nnodes ; i++ )
 	{
-		gesamtbewohner += st->bewohner;
+		gesamtbewohner += G.nodes[i].bewohner;
 	}
 
 	return ((double) gesamtbewohner) / ((double) nwahlkreise);
@@ -78,7 +79,7 @@ double getavg(Bundesland B, int nwahlkreise)
 static
 SCIP_RETCODE setupProblem(
 		SCIP*                 		scip,                /**< SCIP data structure */
-		Bundesland			 		B,
+		GRAPH			 			G,
 		int 					 	nwahlkreise
 )
 {
@@ -88,7 +89,7 @@ SCIP_RETCODE setupProblem(
 	FILE* file = fopen("debug.txt", "w");
 #endif
 
-	double avg = getavg(B, nwahlkreise);
+	double avg = getavg(G, nwahlkreise);
 
 	SCIP_CONS* cons;
 
@@ -108,27 +109,28 @@ SCIP_RETCODE setupProblem(
 	SCIP_Real* ex1wkvals;
 	SCIP_Real* aconsvals;
 	SCIP_Real* population;
+
 	vector< vector<SCIP_Var*> >xvars;		/** xvariablen pro stadt */
-	xvars.resize(B.staedte.size());
+	xvars.resize(G.nnodes);
 
 	vector<SCIP_Var*> xwahlkreisvars;		/** xvariablen pro Wahlkreis
-	 * die jeweils ersten (Anzahl der staedte) Variablem
+	 * die jeweils ersten (Anzahl der staedte) Variablen
 	 * sind die y variablen, danach die x Vars.
 	 */
 
 
 	/* allocate memory */
-	SCIP_CALL( SCIPallocBufferArray(scip, &yvars, B.staedte.size() * nwahlkreise) );
+	SCIP_CALL( SCIPallocBufferArray(scip, &yvars, G.nnodes * nwahlkreise) );
 	SCIP_CALL( SCIPallocBufferArray(scip, &acons, 3) );
 	SCIP_CALL( SCIPallocBufferArray(scip, &xleqycons, 2) );
-	SCIP_CALL( SCIPallocBufferArray(scip, &questionvars, B.staedte.size() * 2 * nwahlkreise) );
+	SCIP_CALL( SCIPallocBufferArray(scip, &questionvars, G.nnodes * 2 * nwahlkreise) );
 	SCIP_CALL( SCIPallocBufferArray(scip, &ex1wkvars, nwahlkreise) );
-	SCIP_CALL( SCIPallocBufferArray(scip, &questionvals, B.staedte.size() * 2 * nwahlkreise) );
-	SCIP_CALL( SCIPallocBufferArray(scip, &baumvals, B.staedte.size() * B.staedte.size()) );
+	SCIP_CALL( SCIPallocBufferArray(scip, &questionvals, G.nnodes * 2 * nwahlkreise) );
+	SCIP_CALL( SCIPallocBufferArray(scip, &baumvals, G.nnodes * G.nnodes) );
 	SCIP_CALL( SCIPallocBufferArray(scip, &xleqyvals, 2) );
 	SCIP_CALL( SCIPallocBufferArray(scip, &ex1wkvals, nwahlkreise) );
 	SCIP_CALL( SCIPallocBufferArray(scip, &aconsvals, 3) );
-	SCIP_CALL( SCIPallocBufferArray(scip, &population, B.staedte.size()) );
+	SCIP_CALL( SCIPallocBufferArray(scip, &population, G.nnodes) );
 
 
 	/* assign static values */
@@ -137,8 +139,8 @@ SCIP_RETCODE setupProblem(
 	aconsvals[2] = -1;
 	xleqyvals[0] = -1;
 	xleqyvals[1] = 1;
-	population[B.staedte.size()    ] = - avg;
-	population[B.staedte.size() + 1] = - avg;
+	population[G.nnodes    ] = - avg;
+	population[G.nnodes + 1] = - avg;
 
 
 	/* create empty problem */
@@ -193,18 +195,19 @@ SCIP_RETCODE setupProblem(
 		SCIP_CALL( SCIPaddCons(scip, cons) );
 
 		int numstadt = 0;
-		for(vector<Stadt>::iterator it = B.staedte.begin(); it != B.staedte.end(); ++it)
+		//for(vector<Stadt>::iterator it = G.staedte.begin(); it != G.staedte.end(); ++it)
+		for( unsigned int i = 0 ; i < G.nnodes ; ++i )
 		{
 
 			/* Stadt it in Wahlkreis i */
 			SCIP_CALL( SCIPcreateVarBasic(scip, &newyvar,
-					("y" + it->name + "_" +  convertinttostring(aktwk)).c_str(),
+					("y" + G.nodes[i].name + "_" +  convertinttostring(aktwk)).c_str(),
 					0, 1, 0.0, SCIP_VARTYPE_BINARY) );
 
 #ifdef SCIP_DEBUG
 			cout << "erzeuge y Variable für" << endl;
 			it->drucke();
-			SCIPdebugMessage(("y" + it->name + "_" +  convertinttostring(aktwk)+"\n").c_str(), aktwk);
+			SCIPdebugMessage(("y" + G.nodes[i].name + "_" +  convertinttostring(aktwk)+"\n").c_str(), aktwk);
 			SCIPprintVar(scip, newyvar, file);
 #endif
 
@@ -213,22 +216,22 @@ SCIP_RETCODE setupProblem(
 			/* store the pointer */
 			yvars[aktwk + numstadt * nwahlkreise] = newyvar;
 			xwahlkreisvars.push_back(newyvar);
-			population[numstadt] = it->bewohner;
+			population[numstadt] = G.nodes[i].bewohner;
 			numstadt++;
 		}
 
 
 		SCIP_Var** tmpvars;
-		SCIP_CALL( SCIPallocBufferArray(scip, &tmpvars, B.staedte.size() + 2 ) );
-		for(unsigned int it = 0; it < B.staedte.size(); it++)
+		SCIP_CALL( SCIPallocBufferArray(scip, &tmpvars, G.nnodes + 2 ) );
+		for(unsigned int it = 0; it < G.nnodes ; it++)
 		{
 			tmpvars[it] = xwahlkreisvars.at(it);
 		}
-		tmpvars[B.staedte.size()] = apos;
-		tmpvars[B.staedte.size()+1] = aneg;
+		tmpvars[G.nnodes] = apos;
+		tmpvars[G.nnodes+1] = aneg;
 
 #ifdef SCIP_DEBUG
-		for(unsigned int it = 0; it < B.staedte.size() + 2; it++)
+		for(unsigned int it = 0; it < G.nnodes + 2; it++)
 		{
 			SCIPprintVar(scip, tmpvars[aktwk], file);
 		}
@@ -236,13 +239,14 @@ SCIP_RETCODE setupProblem(
 
 		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
 				("ausgeglichenheit("+ convertinttostring(aktwk) +")").c_str(),
-				B.staedte.size() + 2, tmpvars, population, 0, SCIPinfinity(scip) ,
+				G.nnodes + 2, tmpvars, population, 0, SCIPinfinity(scip) ,
 				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 		SCIP_CALL( SCIPaddCons(scip, cons) );
 
 		SCIPfreeBufferArray(scip, tmpvars);
 
-		for(vector<Grenze>::iterator it2 = B.grenzen.begin(); it2 != B.grenzen.end(); ++it2)
+		for( unsigned int it2 = 0 ; it2 < G.nedges ; ++it2 )
+		//for(vector<Grenze>::iterator it2 = G.grenzen.begin(); it2 != G.grenzen.end(); ++it2)
 		{
 #ifdef SCIP_DEBUG
 			it2->s1->drucke();
@@ -250,50 +254,50 @@ SCIP_RETCODE setupProblem(
 #endif
 			/* Erstellen der x vars: sind it1 und it2 im selben Wahlkreis und benachbart? */
 			SCIP_CALL( SCIPcreateVarBasic(scip, &newvar,
-					("x" + it2->s1->name + "_" + it2->s2->name + "_" + convertinttostring(aktwk)).c_str(),
+					("x" + G.edges[it2].adjac[0].name + "_" + G.edges[it2].adjac[1].name + "_" + convertinttostring(aktwk)).c_str(),
 					0, 1, 0.0, SCIP_VARTYPE_BINARY) );
 #ifdef SCIP_DEBUG
-			SCIPdebugMessage(("x" + it2->s1->name + "_" + it2->s2->name + "_" + convertinttostring(aktwk) + "\n").c_str(), aktwk);
+			SCIPdebugMessage(("x" + G.edges[it2].adjac[0].name + "_" + G.edges[it2].adjac[1].name + "_" + convertinttostring(aktwk) + "\n").c_str(), aktwk);
 			SCIPprintVar(scip, newyvar, file);
 #endif
 			SCIP_CALL( SCIPaddVar(scip, newvar) );
 
 			/* Vorbereitung auf ? Constraints */
-			xvars.at(idtoid(B, it2->s1->id)).push_back(newvar);
-			xvars.at(idtoid(B, it2->s2->id)).push_back(newvar);
+			xvars.at(idtoid(G, G.edges[it2].adjac[0].stadtid )).push_back(newvar);
+			xvars.at(idtoid(G, G.edges[it2].adjac[1].stadtid )).push_back(newvar);
 
 			/* store them in xwahlkreisvars too */
 			xwahlkreisvars.push_back(newvar);
 
 			/* x(numstadt, j, aktwk) < y(numstadt, aktwk) */
-			for(unsigned int numstadt2 = 0; numstadt2 < B.staedte.size(); numstadt2++)
-				if(B.staedte[numstadt2].id == it2->s1->id)
+			for(unsigned int numstadt2 = 0; numstadt2 < G.nnodes; numstadt2++)
+				if(G.nodes[numstadt2].stadtid == G.edges[it2].adjac[0].stadtid )
 					xleqycons[1] = yvars[aktwk + numstadt2 * nwahlkreise];
 
 			xleqycons[0] = newvar;
 
 
 			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-					("x" + it2->s1->name + it2->s2->name + "_" +  convertinttostring(aktwk) + " < y" + it2->s1->name + "_" +  convertinttostring(aktwk) ).c_str(),
+					("x" + G.edges[it2].adjac[0].name  + G.edges[it2].adjac[1].name + "_" +  convertinttostring(aktwk) + " < y" + G.edges[it2].adjac[0].name + "_" +  convertinttostring(aktwk) ).c_str(),
 					2, xleqycons, xleqyvals, 0, 2, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 			SCIP_CALL( SCIPaddCons(scip, cons) );
 
 			/* x(i, numstadt, aktwk) < y(numstadt, aktwk) */
-			for(unsigned int numstadt2 = 0; numstadt2 < B.staedte.size(); numstadt2++)
-				if(B.staedte[numstadt2].id == it2->s2->id)
+			for(unsigned int numstadt2 = 0; numstadt2 < G.nnodes; numstadt2++)
+				if(G.nodes[numstadt2].stadtid ==  G.edges[it2].adjac[1].stadtid)
 					xleqycons[1] = yvars[aktwk + numstadt2 * nwahlkreise];
 
 			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-					("x" + it2->s1->name + it2->s2->name + "_" +  convertinttostring(aktwk) +
-							" < y" + it2->s2->name + "_" +  convertinttostring(aktwk) ).c_str(),
+					("x" + G.edges[it2].adjac[0].name + G.edges[it2].adjac[1].name + "_" +  convertinttostring(aktwk) +
+							" < y" + G.edges[it2].adjac[1].name + "_" +  convertinttostring(aktwk) ).c_str(),
 							2, xleqycons, xleqyvals, 0, 2, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 			SCIP_CALL( SCIPaddCons(scip, cons) );
 		}
 
 		/* erstellen der |V| = |E| - 1 Constraints */
-		for(unsigned int j = 0; j < B.staedte.size(); j++)
+		for(unsigned int j = 0; j < G.nnodes; j++)
 			baumvals[j] = 1;
-		for(unsigned int j = B.staedte.size(); j < B.staedte.size()*B.staedte.size(); j++)
+		for(unsigned int j = G.nnodes; j < G.nnodes*G.nnodes; j++)
 			baumvals[j] = -1;
 
 		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
@@ -306,7 +310,8 @@ SCIP_RETCODE setupProblem(
 
 	/* Town appears in exact one Constituency */
 	int numstadt = 0;
-	for(vector<Stadt>::iterator it = B.staedte.begin(); it != B.staedte.end(); ++it)
+	for( unsigned int it = 0 ; it < G.nnodes ; ++it )
+	//for(vector<Stadt>::iterator it = G.staedte.begin(); it != G.staedte.end(); ++it)
 	{
 		for(int aktwk = 0; aktwk < nwahlkreise; aktwk++)
 		{
@@ -315,23 +320,23 @@ SCIP_RETCODE setupProblem(
 		}
 
 		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-				("Stadt " + it->name + "hatWK").c_str(),
+				("Stadt " + G.nodes[it].name + "hatWK").c_str(),
 				nwahlkreise, ex1wkvars, ex1wkvals, 1, 1, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 		SCIP_CALL( SCIPaddCons(scip, cons) );
 		numstadt++;
 	}
 
 	/* Questionmark Constraints */
-	for(unsigned int i = 0; i < B.staedte.size(); i++)
+	for(unsigned int i = 0; i < G.nnodes; i++)
 		questionvals[i] = 1;
 
-	for(unsigned int i = 0; i < B.staedte.size(); i++)
+	for(unsigned int i = 0; i < G.nnodes; i++)
 	{
 		for(unsigned int k = 0; k < xvars.at(i).size(); k++)
 			questionvars[k] = xvars.at(i).at(k);
 
 		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-				(convertinttostring(B.staedte[i].id) + "?-cons").c_str(), xvars.at(i).size(),
+				(convertinttostring( G.nodes[i].stadtid) + "?-cons").c_str(), xvars.at(i).size(),
 				questionvars, questionvals, 1, SCIPinfinity(scip),
 				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE) );
 		SCIP_CALL( SCIPaddCons(scip, cons) );
@@ -375,9 +380,16 @@ SCIP_RETCODE runCircle(void)
 	SCIPinfoMessage(scip, NULL, "\n");
 
 
-	Bundesland B = gidoIn("Saarland.gido");
+	// TODO:
+	// Wie Reader einbinden?
+	// Wie mit ProblemData umgehen?
 
-	SCIP_CALL( setupProblem(scip, B, 12) );
+	SCIP_CALL( SCIPincludeObjReader(scip, new ReaderWP(scip), TRUE) );
+
+
+	//GRAPH B = gidoIn("Saarland.gido");
+
+	//SCIP_CALL( setupProblem(scip, G, 12) );
 
 
 	FILE* file = fopen("debug.txt", "w");
