@@ -444,7 +444,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
    /* last, we need a constraint forbidding subtours */
    SCIP_CONS* cons;
-   SCIP_CALL( SCIPcreateConsSubtree(scip, &cons, "subtour", B, graph,
+   SCIP_CALL( SCIPcreateConsSubtree(scip, &cons, "subtour", &B, graph,
          FALSE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, TRUE ) );
    SCIP_CALL( SCIPaddCons(scip, cons) );
    SCIP_CALL( SCIPreleaseCons(scip, &cons) );

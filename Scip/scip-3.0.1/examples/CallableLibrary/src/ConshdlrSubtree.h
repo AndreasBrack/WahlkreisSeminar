@@ -25,6 +25,7 @@ struct Stadt
 	double yk;
 	int kreisid;
 	int bewohner;
+	GRAPHNODE* node;
 
 	Stadt(long int iid, string iname, double ixk, double iyk, int ikreisid, int ibewohner)
 	{
@@ -34,11 +35,69 @@ struct Stadt
 		this->yk = iyk;
 		this->kreisid = ikreisid;
 		this->bewohner = ibewohner;
+
 	}
 
 	void drucke()
 	{
 		cout << "\n\nDrucke Stadt\nName = " << name << "\nid = " << id << "\n";
+	}
+
+	int getBewohner() const {
+		return bewohner;
+	}
+
+	void setBewohner(int bewohner) {
+		this->bewohner = bewohner;
+	}
+
+	long int getId() const {
+		return id;
+	}
+
+	void setId(long int id) {
+		this->id = id;
+	}
+
+	int getKreisid() const {
+		return kreisid;
+	}
+
+	void setKreisid(int kreisid) {
+		this->kreisid = kreisid;
+	}
+
+	const string& getName() const {
+		return name;
+	}
+
+	void setName(const string& name) {
+		this->name = name;
+	}
+
+
+	double getXk() const {
+		return xk;
+	}
+
+	void setXk(double xk) {
+		this->xk = xk;
+	}
+
+	double getYk() const {
+		return yk;
+	}
+
+	void setYk(double yk) {
+		this->yk = yk;
+	}
+
+	const GRAPHNODE*& getNode() const {
+		return node;
+	}
+
+	void setNode(const GRAPHNODE*& node) {
+		this->node = node;
 	}
 };
 
