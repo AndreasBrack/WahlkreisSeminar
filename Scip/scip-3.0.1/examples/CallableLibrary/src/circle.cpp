@@ -186,8 +186,19 @@ string convertinttostring(const int i)
 {
 	int j = i;
 	stringstream ss;
-	ss << j;
+	if( j < 10 )
+		ss << "0" << j;
+	else
+		ss << j;
 	return ss.str();
+}
+
+
+int getwahlkreisid(SCIP_Var* var)
+{
+	string name = SCIPvarGetName(var);
+	string strid = name.substr(name.length()-2, name.length()-1);
+	return atoi(strid.c_str());
 }
 
 
