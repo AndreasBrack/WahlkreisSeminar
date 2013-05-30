@@ -38,7 +38,7 @@ using namespace std;
 
 typedef struct GraphNode
 {
-	int 				  stadtid;
+	long int 			  stadtid;
 	string 				  name;
 	int 				  kreisid;
 	int     			  bewohner;

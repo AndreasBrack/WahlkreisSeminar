@@ -24,7 +24,7 @@
 #include "ProbDataWP.h"
 #include "GomoryHuTree.h"
 
-using namespace tsp;
+using namespace tree;
 using namespace scip;
 
 /** copies given graph */

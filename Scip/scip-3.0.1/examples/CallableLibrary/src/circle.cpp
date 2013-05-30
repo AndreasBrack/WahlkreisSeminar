@@ -35,7 +35,7 @@ using namespace std;
 
 
 
-int idtoid(GRAPH G, int id)
+int idtoid(GRAPH G, long int id)
 {
 	for(unsigned int i = 0; i < G.nnodes; i++)
 		if(G.nodes[i].stadtid == id)
