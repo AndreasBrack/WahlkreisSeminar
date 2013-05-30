@@ -31,6 +31,8 @@
 #include "scip/scipdefplugins.h"
 
 using namespace std;
+using namespace scip;
+
 
 
 
@@ -55,7 +57,7 @@ string convertinttostring(const int i)
 }
 
 
-int getwahlkreisid(SCIP_Var* var)
+int getwahlkreisid(SCIP_VAR* var)
 {
 	string name = SCIPvarGetName(var);
 	string strid = name.substr(name.length()-2, name.length()-1);
@@ -99,10 +101,10 @@ SCIP_RETCODE setupProblem(
 	SCIP_VAR* aneg;
 
 	SCIP_VAR** yvars;
-	SCIP_Var** acons;
-	SCIP_Var** xleqycons;
-	SCIP_Var** questionvars;
-	SCIP_Var** ex1wkvars;
+	SCIP_VAR** acons;
+	SCIP_VAR** xleqycons;
+	SCIP_VAR** questionvars;
+	SCIP_VAR** ex1wkvars;
 	SCIP_Real* questionvals;
 	SCIP_Real* baumvals;
 	SCIP_Real* xleqyvals;
@@ -110,10 +112,10 @@ SCIP_RETCODE setupProblem(
 	SCIP_Real* aconsvals;
 	SCIP_Real* population;
 
-	vector< vector<SCIP_Var*> >xvars;		/** xvariablen pro stadt */
+	vector< vector<SCIP_VAR*> >xvars;		/** xvariablen pro stadt */
 	xvars.resize(G.nnodes);
 
-	vector<SCIP_Var*> xwahlkreisvars;		/** xvariablen pro Wahlkreis
+	vector<SCIP_VAR*> xwahlkreisvars;		/** xvariablen pro Wahlkreis
 	 * die jeweils ersten (Anzahl der staedte) Variablen
 	 * sind die y variablen, danach die x Vars.
 	 */
@@ -221,7 +223,7 @@ SCIP_RETCODE setupProblem(
 		}
 
 
-		SCIP_Var** tmpvars;
+		SCIP_VAR** tmpvars;
 		SCIP_CALL( SCIPallocBufferArray(scip, &tmpvars, G.nnodes + 2 ) );
 		for(unsigned int it = 0; it < G.nnodes ; it++)
 		{
@@ -384,10 +386,7 @@ SCIP_RETCODE runCircle(void)
 	// Wie Reader einbinden?
 	// Wie mit ProblemData umgehen?
 
-	SCIP_CALL( SCIPincludeObjReader(scip, new ReaderWP(scip), TRUE) );
-
-
-	//GRAPH B = gidoIn("Saarland.gido");
+	SCIP_CALL( SCIPincludeObjReader(scip, new tree::ReaderWP(scip), TRUE) );
 
 	//SCIP_CALL( setupProblem(scip, G, 12) );
 

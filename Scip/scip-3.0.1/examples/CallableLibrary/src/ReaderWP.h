@@ -48,7 +48,7 @@ public:
    ReaderWP(SCIP* scip)
       : scip::ObjReader(scip, "wpreader", "file reader for WP files", "wp")
    {
-      /* add WP reader parameters. We don't need them. */
+      GRAPH graph;
    }
 
    /** destructor */
