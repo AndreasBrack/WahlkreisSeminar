@@ -129,44 +129,6 @@ SCIP_RETCODE ReaderWP::addVarToEdges(
 	return SCIP_OKAY;
 }
 
-///** method asserting, that the file has had the correct format and everything was set correctly */
-//bool ReaderWP::checkValid(
-//   GRAPH*             graph,              /**< the constructed graph, should not be NULL */
-//   std::string        name,               /**< the name of the file */
-//   std::string        type,               /**< the type of the problem, should be "WP" */
-//   std::string        edgeweighttype,     /**< type of the edgeweights, should be "EUC_2D", "MAX_2D", "MAN_2D",
-//                                           *   "ATT", or "GEO" */
-//   int                nnodes              /**< dimension of the problem, should at least be one */
-//   )
-//{
-//   // if something seems to be strange, it will be reported, that file was not valid
-//   if( nnodes < 1 )
-//   {
-//      cout << "parse error in file <" << name << "> dimension should be greater than 0"<< endl ;
-//      return false;
-//   }
-//   if (type != "WP" )
-//   {
-//      cout << "parse error in file <" << name << "> type should be WP" << endl;
-//      return false;
-//   }
-//   if ( !( edgeweighttype == "EUC_2D" || edgeweighttype == "MAX_2D" || edgeweighttype == "MAN_2D"
-//         || edgeweighttype == "GEO" || edgeweighttype == "ATT") )
-//   {
-//      cout << "parse error in file <" << name
-//           << "> unknown weight type, should be EUC_2D, MAX_2D, MAN_2D, ATT, or GEO" << endl;
-//      return false;
-//   }
-//   if( graph == NULL)
-//   {
-//      cout << "error while reading file <" << name << ">, graph is uninitialized. ";
-//      cout << "Probably NODE_COORD_SECTION is missing" << endl;
-//      return false;
-//   }
-//   return true;
-//}
-
-
 /** destructor of file reader to free user data (called when SCIP is exiting) */
 SCIP_DECL_READERFREE(ReaderWP::scip_free)
 {
@@ -186,6 +148,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 	int nedges = 0;
 	int nnodes = 0;
+	int aktedge = 0;
 	string tmp;
 
 	stringstream str;
@@ -250,72 +213,68 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 		{
 			filedata >> token >> nedges;
 		}
+	}
 
-		/* if we have the number of nodes and edges we construct the graph */
-		if( ! create_graph(nnodes, nedges, &graph) )
-			return SCIP_READERROR;
+	/* if we have the number of nodes and edges we construct the graph */
+	if( ! create_graph(nnodes, nedges, &graph) )
+		return SCIP_READERROR;
 
-		/* read in the nodes and edges */
-		getline(filedata, token, ',');
-		while( !filedata.eof() )
+	/* read in the nodes and edges */
+	getline(filedata, token, ',');
+	while( !filedata.eof() )
+	{
+		getline(filedata, tmp, ',');
+
+		if(tmp[0] == '#')
 		{
-			getline(filedata, tmp, ',');
+			continue;
+		}
 
-			if(tmp[0] == '#')
-			{
-				continue;
-			}
+		else if(tmp[0] == 'v')
+		{
+			ReaderWP::getNodesFromFile(filedata, graph);
+		}
 
-			else if(tmp[0] == 'v')
-			{
-				ReaderWP::getNodesFromFile(filedata, graph);
-			}
+		else if(tmp[0] == 'e')
+		{
+			getline(filedata, idStart, ',');
+			iidStart = atol(idStart.c_str());
+			getline(filedata, idTarget);
+			iidTarget = atol(idTarget.c_str());
 
-			else if(tmp[0] == 'e')
-			{
-				getline(filedata, idStart, ',');
-				iidStart = atol(idStart.c_str());
-				getline(filedata, idTarget);
-				iidTarget = atol(idTarget.c_str());
 
-//				for(vector<Stadt>::iterator it = B.staedte.begin(); it != B.staedte.end(); ++it)
-//				{
-//					if((*it).id == iidStart)
-//						s1 = &(*it);
-//					if((*it).id == iidTarget)
-//						s2 = &(*it);
-//				}
-//
-//				if(s1 != NULL && s2 != NULL)
-//				{
-//					e = new Grenze(s1, s2);
-//					B.grenzen.push_back(*e);
-//				}
-			}
-			else
+			for(int i = 0; i < nnodes; i++)
 			{
-				SCIPdebugMessage("Not parsing a line.");
+				if(graph->nodes[i].stadtid == iidStart)
+					graph->edges->adjac[0] = &(graph->nodes[i]);
+				if(graph->nodes[i].stadtid == iidTarget)
+					graph->edges->adjac[1] = &(graph->nodes[i]);
 			}
 		}
-		return SCIP_OKAY;
-	}// finished parsing the input
-
-
-
-	/** problem writing method of reader; NOTE: if the parameter "genericnames" is TRUE, then
-	 *  SCIP already set all variable and constraint names to generic names; therefore, this
-	 *  method should always use SCIPvarGetName() and SCIPconsGetName();
-	 *
-	 *  possible return values for *result:
-	 *  - SCIP_SUCCESS    : the reader read the file correctly and created an appropritate problem
-	 *  - SCIP_DIDNOTRUN  : the reader is not responsible for given input file
-	 *
-	 *  If the reader detected an error in the writing to the file stream, it should return
-	 *  with RETCODE SCIP_WRITEERROR.
-	 */
-	SCIP_DECL_READERWRITE(ReaderWP::scip_write)
-	{
-		*result = SCIP_DIDNOTRUN;
-
-		return SCIP_OKAY;
+		else
+		{
+			SCIPdebugMessage("Not parsing a line.");
+		}
 	}
+	return SCIP_OKAY;
+}// finished parsing the input
+
+
+
+/** problem writing method of reader; NOTE: if the parameter "genericnames" is TRUE, then
+ *  SCIP already set all variable and constraint names to generic names; therefore, this
+ *  method should always use SCIPvarGetName() and SCIPconsGetName();
+ *
+ *  possible return values for *result:
+ *  - SCIP_SUCCESS    : the reader read the file correctly and created an appropritate problem
+ *  - SCIP_DIDNOTRUN  : the reader is not responsible for given input file
+ *
+ *  If the reader detected an error in the writing to the file stream, it should return
+ *  with RETCODE SCIP_WRITEERROR.
+ */
+SCIP_DECL_READERWRITE(ReaderWP::scip_write)
+{
+	*result = SCIP_DIDNOTRUN;
+
+	return SCIP_OKAY;
+}
