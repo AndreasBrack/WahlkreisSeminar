@@ -23,14 +23,14 @@ using namespace std;
 
 struct SCIP_ConsData
 {
-   Bundesland* B;
+   Graph* G;
 };
 
 /* checks whether proposed solution contains a subtree */
 static
 SCIP_Bool findSubtree(
    SCIP*              scip,               /**< SCIP data structure */
-   Bundesland*        B,	              /**< underlying B */
+   GRAPH*	          G,	              /**< underlying B */
    SCIP_SOL*          sol                 /**< proposed solution */
    )
 {
@@ -79,7 +79,7 @@ SCIP_DECL_CONSTRANS(ConshdlrSubtree::scip_trans)
    assert( sourcedata != NULL );
 
    SCIP_CALL( SCIPallocMemory(scip, &targetdata) );
-   targetdata->B = sourcedata->B;
+   targetdata->G = sourcedata->G;
 
    /* create target constraint */
    SCIP_CALL( SCIPcreateCons(scip, targetcons, SCIPconsGetName(sourcecons), conshdlr, targetdata,
@@ -182,14 +182,14 @@ SCIP_DECL_CONSENFOLP(ConshdlrSubtree::scip_enfolp)
    for( int i = 0; i < nconss; ++i )
    {
       SCIP_CONSDATA* consdata;
-      Bundesland* B;
+      GRAPH* G;
       SCIP_Bool found;
       consdata = SCIPconsGetData(conss[i]);
       assert(consdata != NULL);
-      B = consdata->B;
-      assert(B != NULL);
+      G = consdata->G;
+      assert(G != NULL);
 
-      found = findSubtree(scip, B, NULL);
+      found = findSubtree(scip, G, NULL);
 
       // if a subtree was found, we generate a cut constraint saying that there must be at least two outgoing edges
       if( found )
@@ -236,16 +236,16 @@ SCIP_DECL_CONSENFOPS(ConshdlrSubtree::scip_enfops)
    for( int i = 0; i < nconss; ++i )
    {
       SCIP_CONSDATA* consdata;
-      Bundesland* B;
+      Graph* G;
       SCIP_Bool found;
 
       consdata = SCIPconsGetData(conss[i]);
       assert(consdata != NULL);
-      B = consdata->B;
-      assert(B != NULL);
+      G = consdata->G;
+      assert(G != NULL);
 
       // if a subtree is found, the solution must be infeasible
-      found = findSubtree(scip, B, NULL);
+      found = findSubtree(scip, G, NULL);
       if( found )
          *result = SCIP_INFEASIBLE;
    }
@@ -281,16 +281,16 @@ SCIP_DECL_CONSCHECK(ConshdlrSubtree::scip_check)
    for( int i = 0; i < nconss; ++i )
    {
       SCIP_CONSDATA* consdata;
-      Bundesland* B;
+      GRAPH* G;
       SCIP_Bool found;
 
       consdata = SCIPconsGetData(conss[i]);
       assert(consdata != NULL);
-      B = consdata->B;
-      assert(B != NULL);
+      G = consdata->G;
+      assert(G != NULL);
 
       // if a subtree is found, the solution must be infeasible
-      found = findSubtree(scip, B, sol);
+      found = findSubtree(scip, G, sol);
       if( found )
       {
          *result = SCIP_INFEASIBLE;
@@ -378,13 +378,13 @@ SCIP_DECL_CONSPROP(ConshdlrSubtree::scip_prop)
 SCIP_DECL_CONSLOCK(ConshdlrSubtree::scip_lock)
 {
    SCIP_CONSDATA* consdata;
-   Bundesland* B;
+   GRAPH* G;
 
    consdata = SCIPconsGetData(cons);
    assert(consdata != NULL);
 
-   B = consdata->B;
-   assert(B != NULL);
+   G = consdata->G;
+   assert(G != NULL);
    /* TODO @Gido: add some locks.*/
 //   for( int i = 0; i < g->nedges; ++i )
 //   {
@@ -418,12 +418,12 @@ SCIP_DECL_CONSDELVARS(ConshdlrSubtree::scip_delvars)
 SCIP_DECL_CONSPRINT(ConshdlrSubtree::scip_print)
 {
    SCIP_CONSDATA* consdata;
-   Bundesland* g;
+   GRAPH* g;
 
    consdata = SCIPconsGetData(cons);
    assert(consdata != NULL);
 
-   g = consdata->B;
+   g = consdata->G;
    assert(g != NULL);
 
    SCIPinfoMessage(scip, file, "subtree of Graph G with  nodes and edges\n");
@@ -460,9 +460,9 @@ SCIP_DECL_CONSCOPY(ConshdlrSubtree::scip_copy)
    SCIP_CALL( SCIPallocMemory( scip, &consdata) );
 
    /* erhalte Bundesland */
-   Bundesland* B = NULL;
+   GRAPH* G = NULL;
 
-   consdata->B = B;
+   consdata->G = G;
 
    /* create constraint */
    SCIP_CALL( SCIPcreateCons(scip, cons, (name == NULL) ? SCIPconsGetName(sourcecons) : name,
@@ -478,8 +478,7 @@ SCIP_RETCODE tree::SCIPcreateConsSubtree(
    SCIP*                 scip,               /**< SCIP data structure */
    SCIP_CONS**           cons,               /**< pointer to hold the created constraint */
    const char*           name,               /**< name of constraint */
-   Bundesland*           B,   	             /**< the underlying B */
-   Graph*				 graph				 /**< the underlying graph structure */
+   GRAPH*				 graph,				 /**< the underlying graph structure */
    SCIP_Bool             initial,            /**< should the LP relaxation of constraint be in the initial LP? */
    SCIP_Bool             separate,           /**< should the constraint be separated during LP processing? */
    SCIP_Bool             enforce,            /**< should the constraint be enforced during node processing? */
@@ -504,7 +503,7 @@ SCIP_RETCODE tree::SCIPcreateConsSubtree(
 
    /* create constraint data */
    SCIP_CALL( SCIPallocMemory( scip, &consdata) );
-   consdata->B = B;
+   consdata->G = graph;
 
    /* create constraint */
    SCIP_CALL( SCIPcreateCons(scip, cons, name, conshdlr, consdata, initial, separate, enforce, check, propagate,
