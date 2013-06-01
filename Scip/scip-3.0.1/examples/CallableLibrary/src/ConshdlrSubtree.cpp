@@ -30,11 +30,74 @@ struct SCIP_ConsData
 static
 SCIP_Bool findSubtree(
    SCIP*              scip,               /**< SCIP data structure */
-   GRAPH*	          G,	              /**< underlying B */
+   GRAPH*	          graph,	              /**< underlying B */
    SCIP_SOL*          sol                 /**< proposed solution */
    )
 {
-	return TRUE;
+	   GRAPHNODE* node;
+	   GRAPHNODE* startnode;
+	   GRAPHEDGE* lastedge;
+	   GRAPHEDGE* edge;
+	   GRAPHEDGE* nextedge;
+	   int tourlength;
+	   SCIP_Bool foundnextedge;
+
+	   if(graph->nnodes <= 1)
+	      return FALSE;
+
+	   startnode = &graph->nodes[0];
+
+	   tourlength = 0;
+	   lastedge = NULL;
+	   node = startnode;
+
+	   // follow the (sub?)tour until you come back to the startnode
+	   do
+	   {
+	      edge = node->first_edge;
+	      foundnextedge = FALSE;
+	      nextedge = NULL;
+
+	      // look for an outgoing edge to proceed
+	      while( edge != NULL )
+	      {
+	         // if a new edge with value numerical equal to one is found, we proceed
+	         if( edge->back != lastedge && SCIPgetSolVal(scip, sol, edge->var) > 0.5 )
+	         {
+	            tourlength++;
+
+	            if( foundnextedge || tourlength > graph->nnodes )
+	            {
+	               /* we found a subtour without the starting node, e.g. 0 - 1 - 2 - 3 - 1 - 2 - ...;
+	                * this can only happen, if the degree constraints are violated;
+	                * start again with the last visited node as starting node, because this must be member of the subtour;
+	                * thus, in the second run we will find the subtour!
+	                */
+	               return TRUE;
+	            }
+
+	            foundnextedge= TRUE;
+	            nextedge = edge;
+
+	            if( node == startnode )
+	               break;
+	         }
+
+	         edge = edge->next;
+	      }
+
+	      /* we didn't find an outgoing edge in the solution: the degree constraints must be violated; abort! */
+	      if( nextedge == NULL )
+	         return TRUE;
+
+	      node = nextedge->adjac;
+	      lastedge = nextedge;
+	   }
+	   while( node != startnode );
+
+	   assert(tourlength <= graph->nnodes);
+
+	   return ( graph->nnodes != tourlength );
 }
 
 /* separates subtree elemination cuts */
@@ -49,8 +112,93 @@ SCIP_RETCODE sepaSubtree(
    SCIP_RESULT*       result              /**< pointer to store the result of the separation call */
    )
 {
+	assert(result != NULL);
 
-	return SCIP_OKAY;
+	   *result = SCIP_DIDNOTFIND;
+
+	   for( int c = 0; c < nusefulconss; ++c )
+	   {
+	      // get all required structures
+	      SCIP_CONSDATA* consdata;
+	      GRAPH* graph;
+	      consdata = SCIPconsGetData(conss[c]);
+	      assert(consdata != NULL);
+	      graph = consdata->G;
+	      assert(graph != NULL);
+
+	      double cap;
+
+	      // store the suggested, but infeasible solution into the capacity of the edges
+	      for( int i = 0; i < graph->nedges; i++)
+	      {
+	         cap = SCIPgetSolVal(scip, sol, graph->edges[i].var);
+	         graph->edges[i].rcap = cap;
+	         graph->edges[i].cap = cap;
+	         graph->edges[i].back->rcap = cap;
+	         graph->edges[i].back->cap = cap;
+	      }
+
+	      SCIP_Bool** cuts;
+	      int ncuts;
+
+	      SCIP_CALL( SCIPallocBufferArray(scip, &cuts, graph->nnodes) );
+	      for(int i = 0; i < graph->nnodes; i++)
+	      {
+	         SCIP_CALL( SCIPallocBufferArray(scip, &cuts[i], graph->nnodes) );
+	      }
+
+	      // try to find cuts
+	      if( ghc_tree( graph, cuts, &ncuts, SCIPfeastol(scip) ) )
+	      {
+	         int i = 0;
+
+	         // create a new cutting plane for every suitable arc (representing a cut with value < 2) of the Gomory Hu Tree
+	         while( i < ncuts )
+	         {
+	            SCIP_ROW* row;
+	            SCIP_CALL( SCIPcreateEmptyRowCons(scip, &row, conshdlr, "sepa_con", 2.0, SCIPinfinity(scip), FALSE, FALSE, TRUE) );
+
+	            SCIP_CALL( SCIPcacheRowExtensions(scip, row) );
+
+	            for( int j = 0; j < graph->nnodes; j++)
+	            {
+	               // in gmincut the graph has been partitioned into two parts, represented by bools
+	               if( cuts[i][j] )
+	               {
+	                  GRAPHEDGE* edge = graph->nodes[j].first_edge;
+
+	                  // take every edge with nodes in different parts into account
+	                  while( edge != NULL )
+	                  {
+	                     if( !cuts[i][edge->adjac->id] )
+	                     {
+	                        SCIP_CALL( SCIPaddVarToRow(scip, row, edge->var, 1.0) );
+	                     }
+	                     edge = edge->next;
+	                  }
+	               }
+	            }
+
+	            SCIP_CALL( SCIPflushRowExtensions(scip, row) );
+
+	            // add cut
+	            if( SCIPisCutEfficacious(scip, sol, row) )
+	            {
+	               SCIP_CALL( SCIPaddCut(scip, sol, row, FALSE) );
+	               *result = SCIP_SEPARATED;
+	            }
+	            SCIP_CALL( SCIPreleaseRow(scip, &row) );
+
+	            i++;
+	         }
+	      }
+	      for( int i = graph->nnodes - 1; i >= 0; i-- )
+	         SCIPfreeBufferArray( scip, &cuts[i] );
+	      SCIPfreeBufferArray( scip, &cuts );
+
+	   }
+
+	   return SCIP_OKAY;
 }
 
 
