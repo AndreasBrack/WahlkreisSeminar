@@ -23,7 +23,7 @@ using namespace std;
 
 struct SCIP_ConsData
 {
-   Bundesland* B;
+   Graph* G;
 };
 
 /* checks whether proposed solution contains a subtree */
@@ -34,52 +34,135 @@ SCIP_Bool findSubtree(
    SCIP_SOL*          sol                 /**< proposed solution */
    )
 {
-	GRAPHNODE* node, first_node;
-	GRAPHEDGE* edge;
-	graph->nnodes;
-	std::set<GRAPHNODE*> set_nodes;
-	node = graph->nodes;
-	while (node->bfs_link != NULL) {
-		set_nodes.insert(node);
-		node = node->bfs_link;
-	}
-	first_node = set_nodes.begin();
-	bool tmp = findSubtreeRecursive(scip, graph, sol, *set_nodes, first_node);
-	return TRUE;
+	   GRAPHNODE* node;
+	   GRAPHNODE* startnode;
+	   GRAPHEDGE* lastedge;
+	   GRAPHEDGE* edge;
+	   GRAPHEDGE* nextedge;
+	   int tourlength;
+	   SCIP_Bool foundnextedge;
+
+	   if(graph->nnodes <= 1)
+	      return FALSE;
+
+	   startnode = &graph->nodes[0];
+
+	   tourlength = 0;
+	   lastedge = NULL;
+	   node = startnode;
+
+	   // follow the (sub?)tour until you come back to the startnode
+	   GRAPHNODE* node;
+	   GRAPHNODE* startnode;
+	   GRAPHEDGE* lastedge;
+	   GRAPHEDGE* edge;
+	   GRAPHEDGE* nextedge;
+	   int tourlength;
+	   SCIP_Bool foundnextedge;
+
+	   if(graph->nnodes <= 1)
+	      return FALSE;
+
+	   startnode = &graph->nodes[0];
+
+	   tourlength = 0;
+	   lastedge = NULL;
+	   node = startnode;
+
+	   // follow the (sub?)tour until you come back to the startnode
+	   do
+	   {
+	      edge = node->first_edge;
+	      foundnextedge = FALSE;
+	      nextedge = NULL;
+
+	      // look for an outgoing edge to proceed
+	      while( edge != NULL )
+	      {
+	         // if a new edge with value numerical equal to one is found, we proceed
+	         if( edge->back != lastedge && SCIPgetSolVal(scip, sol, edge->var) > 0.5 )
+	         {
+	            tourlength++;
+
+	            if( foundnextedge || tourlength > graph->nnodes )
+	            {
+	               /* we found a subtour without the starting node, e.g. 0 - 1 - 2 - 3 - 1 - 2 - ...;
+	                * this can only happen, if the degree constraints are violated;
+	                * start again with the last visited node as starting node, because this must be member of the subtour;
+	                * thus, in the second run we will find the subtour!
+	                */
+	               return TRUE;
+	            }
+
+	            foundnextedge= TRUE;
+	            nextedge = edge;
+
+	            if( node == startnode )
+	               break;
+	         }
+
+	         edge = edge->next;
+	      }
+
+	      /* we didn't find an outgoing edge in the solution: the degree constraints must be violated; abort! */
+	      if( nextedge == NULL )
+	         return TRUE;
+
+	      node = nextedge->adjac;
+	      lastedge = nextedge;
+	   }
+	   while( node != startnode );
+
+	   assert(tourlength <= graph->nnodes);
+
+	   return ( graph->nnodes != tourlength );
 }
+	   do
+	   {
+	      edge = node->first_edge;
+	      foundnextedge = FALSE;
+	      nextedge = NULL;
 
+	      // look for an outgoing edge to proceed
+	      while( edge != NULL )
+	      {
+	         // if a new edge with value numerical equal to one is found, we proceed
+	         if( edge->back != lastedge && SCIPgetSolVal(scip, sol, edge->var) > 0.5 )
+	         {
+	            tourlength++;
 
-static
-SCIP_Bool findSubtreeRecursive(SCIP*              scip,               /**< SCIP data structure */
-		   	   	   	   	   	   GRAPH* 			  graph,	           /**< underlying B */
-		   	   	   	   	   	   SCIP_SOL*          sol,                 /**< proposed solution */
-		   	   	   	   	   	   set<GRAPHNODE*>*	  set_nodes,            /**< nodes of graph */
-		   	   	   	   	   	   GRAPHNODE*		  node				   /**< current node */
-								)
-{
-	GRAPHEDGE* edge;
-	int ct_edges, ct_nodes = 0;
+	            if( foundnextedge || tourlength > graph->nnodes )
+	            {
+	               /* we found a subtour without the starting node, e.g. 0 - 1 - 2 - 3 - 1 - 2 - ...;
+	                * this can only happen, if the degree constraints are violated;
+	                * start again with the last visited node as starting node, because this must be member of the subtour;
+	                * thus, in the second run we will find the subtour!
+	                */
+	               return TRUE;
+	            }
 
-	set_nodes->erase(node);
-	ct_nodes += 1;
-	edge = node->first_edge;
+	            foundnextedge= TRUE;
+	            nextedge = edge;
 
-	while(edge != NULL) {
-		GRAPHNODE* v_ziel = edge->adjac;
-		ct_edges += 1;
+	            if( node == startnode )
+	               break;
+	         }
 
-		if (set_nodes->find(v_ziel))  // v_ziel currently not observed
-			if (!findSubtreeRecursive(scip, graph, sol, set_nodes, v_ziel))
-					return FALSE;
+	         edge = edge->next;
+	      }
 
-		edge = edge->next;
-	}
+	      /* we didn't find an outgoing edge in the solution: the degree constraints must be violated; abort! */
+	      if( nextedge == NULL )
+	         return TRUE;
 
-	if (ct_edges != (ct_nodes-1)*2) { // Kantenanzahl = Knotenanzahl-1 im Baum
-		return FALSE;
-	}
+	      node = nextedge->adjac;
+	      lastedge = nextedge;
+	   }
+	   while( node != startnode );
 
-	return TRUE;
+	   assert(tourlength <= graph->nnodes);
+
+	   return ( graph->nnodes != tourlength );
 }
 
 
@@ -95,8 +178,93 @@ SCIP_RETCODE sepaSubtree(
    SCIP_RESULT*       result              /**< pointer to store the result of the separation call */
    )
 {
+	assert(result != NULL);
 
-	return SCIP_OKAY;
+	   *result = SCIP_DIDNOTFIND;
+
+	   for( int c = 0; c < nusefulconss; ++c )
+	   {
+	      // get all required structures
+	      SCIP_CONSDATA* consdata;
+	      GRAPH* graph;
+	      consdata = SCIPconsGetData(conss[c]);
+	      assert(consdata != NULL);
+	      graph = consdata->G;
+	      assert(graph != NULL);
+
+	      double cap;
+
+	      // store the suggested, but infeasible solution into the capacity of the edges
+	      for( int i = 0; i < graph->nedges; i++)
+	      {
+	         cap = SCIPgetSolVal(scip, sol, graph->edges[i].var);
+	         graph->edges[i].rcap = cap;
+	         graph->edges[i].cap = cap;
+	         graph->edges[i].back->rcap = cap;
+	         graph->edges[i].back->cap = cap;
+	      }
+
+	      SCIP_Bool** cuts;
+	      int ncuts;
+
+	      SCIP_CALL( SCIPallocBufferArray(scip, &cuts, graph->nnodes) );
+	      for(int i = 0; i < graph->nnodes; i++)
+	      {
+	         SCIP_CALL( SCIPallocBufferArray(scip, &cuts[i], graph->nnodes) );
+	      }
+
+	      // try to find cuts
+	      if( ghc_tree( graph, cuts, &ncuts, SCIPfeastol(scip) ) )
+	      {
+	         int i = 0;
+
+	         // create a new cutting plane for every suitable arc (representing a cut with value < 2) of the Gomory Hu Tree
+	         while( i < ncuts )
+	         {
+	            SCIP_ROW* row;
+	            SCIP_CALL( SCIPcreateEmptyRowCons(scip, &row, conshdlr, "sepa_con", 2.0, SCIPinfinity(scip), FALSE, FALSE, TRUE) );
+
+	            SCIP_CALL( SCIPcacheRowExtensions(scip, row) );
+
+	            for( int j = 0; j < graph->nnodes; j++)
+	            {
+	               // in gmincut the graph has been partitioned into two parts, represented by bools
+	               if( cuts[i][j] )
+	               {
+	                  GRAPHEDGE* edge = graph->nodes[j].first_edge;
+
+	                  // take every edge with nodes in different parts into account
+	                  while( edge != NULL )
+	                  {
+	                     if( !cuts[i][edge->adjac->id] )
+	                     {
+	                        SCIP_CALL( SCIPaddVarToRow(scip, row, edge->var, 1.0) );
+	                     }
+	                     edge = edge->next;
+	                  }
+	               }
+	            }
+
+	            SCIP_CALL( SCIPflushRowExtensions(scip, row) );
+
+	            // add cut
+	            if( SCIPisCutEfficacious(scip, sol, row) )
+	            {
+	               SCIP_CALL( SCIPaddCut(scip, sol, row, FALSE) );
+	               *result = SCIP_SEPARATED;
+	            }
+	            SCIP_CALL( SCIPreleaseRow(scip, &row) );
+
+	            i++;
+	         }
+	      }
+	      for( int i = graph->nnodes - 1; i >= 0; i-- )
+	         SCIPfreeBufferArray( scip, &cuts[i] );
+	      SCIPfreeBufferArray( scip, &cuts );
+
+	   }
+
+	   return SCIP_OKAY;
 }
 
 
@@ -125,7 +293,7 @@ SCIP_DECL_CONSTRANS(ConshdlrSubtree::scip_trans)
    assert( sourcedata != NULL );
 
    SCIP_CALL( SCIPallocMemory(scip, &targetdata) );
-   targetdata->B = sourcedata->B;
+   targetdata->G = sourcedata->G;
 
    /* create target constraint */
    SCIP_CALL( SCIPcreateCons(scip, targetcons, SCIPconsGetName(sourcecons), conshdlr, targetdata,
@@ -228,14 +396,14 @@ SCIP_DECL_CONSENFOLP(ConshdlrSubtree::scip_enfolp)
    for( int i = 0; i < nconss; ++i )
    {
       SCIP_CONSDATA* consdata;
-      Bundesland* B;
+      GRAPH* G;
       SCIP_Bool found;
       consdata = SCIPconsGetData(conss[i]);
       assert(consdata != NULL);
-      B = consdata->B;
-      assert(B != NULL);
+      G = consdata->G;
+      assert(G != NULL);
 
-      found = findSubtree(scip, B, NULL);
+      found = findSubtree(scip, G, NULL);
 
       // if a subtree was found, we generate a cut constraint saying that there must be at least two outgoing edges
       if( found )
@@ -282,16 +450,16 @@ SCIP_DECL_CONSENFOPS(ConshdlrSubtree::scip_enfops)
    for( int i = 0; i < nconss; ++i )
    {
       SCIP_CONSDATA* consdata;
-      Bundesland* B;
+      Graph* G;
       SCIP_Bool found;
 
       consdata = SCIPconsGetData(conss[i]);
       assert(consdata != NULL);
-      B = consdata->B;
-      assert(B != NULL);
+      G = consdata->G;
+      assert(G != NULL);
 
       // if a subtree is found, the solution must be infeasible
-      found = findSubtree(scip, B, NULL);
+      found = findSubtree(scip, G, NULL);
       if( found )
          *result = SCIP_INFEASIBLE;
    }
@@ -327,16 +495,16 @@ SCIP_DECL_CONSCHECK(ConshdlrSubtree::scip_check)
    for( int i = 0; i < nconss; ++i )
    {
       SCIP_CONSDATA* consdata;
-      Bundesland* B;
+      GRAPH* G;
       SCIP_Bool found;
 
       consdata = SCIPconsGetData(conss[i]);
       assert(consdata != NULL);
-      B = consdata->B;
-      assert(B != NULL);
+      G = consdata->G;
+      assert(G != NULL);
 
       // if a subtree is found, the solution must be infeasible
-      found = findSubtree(scip, B, sol);
+      found = findSubtree(scip, G, sol);
       if( found )
       {
          *result = SCIP_INFEASIBLE;
@@ -424,13 +592,13 @@ SCIP_DECL_CONSPROP(ConshdlrSubtree::scip_prop)
 SCIP_DECL_CONSLOCK(ConshdlrSubtree::scip_lock)
 {
    SCIP_CONSDATA* consdata;
-   Bundesland* B;
+   GRAPH* G;
 
    consdata = SCIPconsGetData(cons);
    assert(consdata != NULL);
 
-   B = consdata->B;
-   assert(B != NULL);
+   G = consdata->G;
+   assert(G != NULL);
    /* TODO @Gido: add some locks.*/
 //   for( int i = 0; i < g->nedges; ++i )
 //   {
@@ -464,12 +632,12 @@ SCIP_DECL_CONSDELVARS(ConshdlrSubtree::scip_delvars)
 SCIP_DECL_CONSPRINT(ConshdlrSubtree::scip_print)
 {
    SCIP_CONSDATA* consdata;
-   Bundesland* g;
+   GRAPH* g;
 
    consdata = SCIPconsGetData(cons);
    assert(consdata != NULL);
 
-   g = consdata->B;
+   g = consdata->G;
    assert(g != NULL);
 
    SCIPinfoMessage(scip, file, "subtree of Graph G with  nodes and edges\n");
@@ -506,9 +674,9 @@ SCIP_DECL_CONSCOPY(ConshdlrSubtree::scip_copy)
    SCIP_CALL( SCIPallocMemory( scip, &consdata) );
 
    /* erhalte Bundesland */
-   Bundesland* B = NULL;
+   GRAPH* G = NULL;
 
-   consdata->B = B;
+   consdata->G = G;
 
    /* create constraint */
    SCIP_CALL( SCIPcreateCons(scip, cons, (name == NULL) ? SCIPconsGetName(sourcecons) : name,
@@ -524,8 +692,7 @@ SCIP_RETCODE tree::SCIPcreateConsSubtree(
    SCIP*                 scip,               /**< SCIP data structure */
    SCIP_CONS**           cons,               /**< pointer to hold the created constraint */
    const char*           name,               /**< name of constraint */
-   Bundesland*           B,   	             /**< the underlying B */
-   Graph*				 graph				 /**< the underlying graph structure */
+   GRAPH*				 graph,				 /**< the underlying graph structure */
    SCIP_Bool             initial,            /**< should the LP relaxation of constraint be in the initial LP? */
    SCIP_Bool             separate,           /**< should the constraint be separated during LP processing? */
    SCIP_Bool             enforce,            /**< should the constraint be enforced during node processing? */
@@ -550,7 +717,7 @@ SCIP_RETCODE tree::SCIPcreateConsSubtree(
 
    /* create constraint data */
    SCIP_CALL( SCIPallocMemory( scip, &consdata) );
-   consdata->B = B;
+   consdata->G = graph;
 
    /* create constraint */
    SCIP_CALL( SCIPcreateCons(scip, cons, name, conshdlr, consdata, initial, separate, enforce, check, propagate,
