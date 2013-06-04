@@ -34,135 +34,53 @@ SCIP_Bool findSubtree(
    SCIP_SOL*          sol                 /**< proposed solution */
    )
 {
-	   GRAPHNODE* node;
-	   GRAPHNODE* startnode;
-	   GRAPHEDGE* lastedge;
-	   GRAPHEDGE* edge;
-	   GRAPHEDGE* nextedge;
-	   int tourlength;
-	   SCIP_Bool foundnextedge;
+	GRAPHNODE* node, first_node;
+	GRAPHEDGE* edge;
+	graph->nnodes;
+	std::set<GRAPHNODE*> set_nodes;
+	for (int i = 0 ; i < graph->nnodes ; ++i) {
+		set_nodes.insert(&graph->nodes[i]);
+	}
 
-	   if(graph->nnodes <= 1)
-	      return FALSE;
+	first_node = set_nodes.begin();
+	//bool tmp = findSubtreeRecursive(scip, graph, sol, *set_nodes, first_node);
 
-	   startnode = &graph->nodes[0];
-
-	   tourlength = 0;
-	   lastedge = NULL;
-	   node = startnode;
-
-	   // follow the (sub?)tour until you come back to the startnode
-	   GRAPHNODE* node;
-	   GRAPHNODE* startnode;
-	   GRAPHEDGE* lastedge;
-	   GRAPHEDGE* edge;
-	   GRAPHEDGE* nextedge;
-	   int tourlength;
-	   SCIP_Bool foundnextedge;
-
-	   if(graph->nnodes <= 1)
-	      return FALSE;
-
-	   startnode = &graph->nodes[0];
-
-	   tourlength = 0;
-	   lastedge = NULL;
-	   node = startnode;
-
-	   // follow the (sub?)tour until you come back to the startnode
-	   do
-	   {
-	      edge = node->first_edge;
-	      foundnextedge = FALSE;
-	      nextedge = NULL;
-
-	      // look for an outgoing edge to proceed
-	      while( edge != NULL )
-	      {
-	         // if a new edge with value numerical equal to one is found, we proceed
-	         if( edge->back != lastedge && SCIPgetSolVal(scip, sol, edge->var) > 0.5 )
-	         {
-	            tourlength++;
-
-	            if( foundnextedge || tourlength > graph->nnodes )
-	            {
-	               /* we found a subtour without the starting node, e.g. 0 - 1 - 2 - 3 - 1 - 2 - ...;
-	                * this can only happen, if the degree constraints are violated;
-	                * start again with the last visited node as starting node, because this must be member of the subtour;
-	                * thus, in the second run we will find the subtour!
-	                */
-	               return TRUE;
-	            }
-
-	            foundnextedge= TRUE;
-	            nextedge = edge;
-
-	            if( node == startnode )
-	               break;
-	         }
-
-	         edge = edge->next;
-	      }
-
-	      /* we didn't find an outgoing edge in the solution: the degree constraints must be violated; abort! */
-	      if( nextedge == NULL )
-	         return TRUE;
-
-	      node = nextedge->adjac;
-	      lastedge = nextedge;
-	   }
-	   while( node != startnode );
-
-	   assert(tourlength <= graph->nnodes);
-
-	   return ( graph->nnodes != tourlength );
+	return TRUE;
 }
-	   do
-	   {
-	      edge = node->first_edge;
-	      foundnextedge = FALSE;
-	      nextedge = NULL;
 
-	      // look for an outgoing edge to proceed
-	      while( edge != NULL )
-	      {
-	         // if a new edge with value numerical equal to one is found, we proceed
-	         if( edge->back != lastedge && SCIPgetSolVal(scip, sol, edge->var) > 0.5 )
-	         {
-	            tourlength++;
 
-	            if( foundnextedge || tourlength > graph->nnodes )
-	            {
-	               /* we found a subtour without the starting node, e.g. 0 - 1 - 2 - 3 - 1 - 2 - ...;
-	                * this can only happen, if the degree constraints are violated;
-	                * start again with the last visited node as starting node, because this must be member of the subtour;
-	                * thus, in the second run we will find the subtour!
-	                */
-	               return TRUE;
-	            }
+static
+SCIP_Bool ConshdlrSubtree::findSubtreeRecursive(
+							SCIP*             	scip, 	     /**< SCIP data structure */
+							GRAPH* 			  	graph,	     /**< underlying B */
+							SCIP_SOL*          	sol,         /**< proposed solution */
+							set<GRAPHNODE*>*	set_nodes,   /**< nodes of graph */
+							GRAPHNODE*		  	node		 /**< current node */
+							)
+{
+	GRAPHEDGE* edge;
+	int ct_edges, ct_nodes = 0;
 
-	            foundnextedge= TRUE;
-	            nextedge = edge;
+	set_nodes->erase(node);
+	ct_nodes += 1;
+	edge = node->first_edge;
 
-	            if( node == startnode )
-	               break;
-	         }
+	while(edge != NULL) {
+		GRAPHNODE* v_ziel = edge->adjac;
+		ct_edges += 1;
 
-	         edge = edge->next;
-	      }
+		if (set_nodes->find(v_ziel))  // v_ziel currently not observed
+			if (!findSubtreeRecursive(scip, graph, sol, set_nodes, v_ziel))
+					return FALSE;
 
-	      /* we didn't find an outgoing edge in the solution: the degree constraints must be violated; abort! */
-	      if( nextedge == NULL )
-	         return TRUE;
+		edge = edge->next;
+	}
 
-	      node = nextedge->adjac;
-	      lastedge = nextedge;
-	   }
-	   while( node != startnode );
+	if (ct_edges != (ct_nodes-1)*2) { // Kantenanzahl = Knotenanzahl-1 im Baum
+		return FALSE;
+	}
 
-	   assert(tourlength <= graph->nnodes);
-
-	   return ( graph->nnodes != tourlength );
+	return TRUE;
 }
 
 

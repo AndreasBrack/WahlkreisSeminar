@@ -278,6 +278,17 @@ public:
     *  SCIP data structure.
     */
    virtual SCIP_DECL_CONSCOPY(scip_copy);
+
+private:
+
+   static SCIP_Bool findSubtreeRecursive(
+		   	   	   	   	   SCIP*			scip,		/**< SCIP data structure */
+		   	   	   	   	   GRAPH*    		graph,		/**< underlying B */
+		   	   	   	   	   SCIP_SOL* 		sol,        /**< proposed solution */
+		   	   	   	   	   set<GRAPHNODE*>*	set_nodes,  /**< nodes of graph */
+		   	   	   	   	   GRAPHNODE*		node		/**< current node */
+   	   	   	   	   	   	   );
+
 };
 
 /** creates and captures a TSP subtree constraint */
@@ -298,5 +309,7 @@ SCIP_RETCODE SCIPcreateConsSubtree(
    );
 
 }
+
+
 
 #endif
