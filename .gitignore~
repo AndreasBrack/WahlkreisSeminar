@@ -1,0 +1,11 @@
+
+# ignore these two
+.cproject
+.project
+
+# ignore whole scip
+# Scip/
+
+# stop ignoring our Source
+#! Scip/scip-3.0.1/examples/CallableLibrary/src/
+#! Scip/scip-3.0.1/examples/CallableLibrary/Makefile
