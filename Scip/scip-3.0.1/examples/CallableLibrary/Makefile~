@@ -2,7 +2,7 @@
 #@brief   Makefile for C++ TSP example using SCIP as a callable library
 #@author  Thorsten Koch
 #@author  Tobias Achterberg
-#@author  Marc Pfetsch und Gido
+#@author  Marc Pfetsch
 
 
 #-----------------------------------------------------------------------------
