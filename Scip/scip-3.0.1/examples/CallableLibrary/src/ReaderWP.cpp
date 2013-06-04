@@ -212,6 +212,25 @@ double ReaderWP::getavg(GRAPH* G, int nwahlkreise)
 	return ((double) gesamtbewohner) / ((double) nwahlkreise);
 }
 
+string convertinttostring(const int i)
+{
+	int j = i;
+	stringstream ss;
+	if( j < 10 )
+		ss << "0" << j;
+	else
+		ss << j;
+	return ss.str();
+}
+
+int idtoid(GRAPH* G, long int id)
+{
+	for(unsigned int i = 0; i < G->nnodes; i++)
+		if(G->nodes[i].stadtid == id)
+			return i;
+	exit(-1);
+}
+
 
 /** adds a variable to both halfedges and captures it for usage in the graph */
 SCIP_RETCODE ReaderWP::addVarToEdges(
@@ -621,7 +640,6 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 
 	/* last, we need a constraint forbidding "subtrees" */
-	SCIP_CONS* cons;
 	SCIP_CALL( SCIPcreateConsSubtree(scip, &cons, "subtree", graph,
 	         FALSE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, TRUE ) );
 	SCIP_CALL( SCIPaddCons(scip, cons) );

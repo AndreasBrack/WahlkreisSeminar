@@ -46,7 +46,7 @@ public:
    ReaderWP(SCIP* scip)
       : scip::ObjReader(scip, "wpreader", "file reader for WP files", "wp")
    {
-      GRAPH graph;
+      //GRAPH graph;
    }
 
    /** destructor */
@@ -100,6 +100,10 @@ private:
 		 GRAPH* G,
 		 int nwahlkreise
 		 );
+
+   string convertinttostring(const int i);
+
+   int idtoid(GRAPH* G, long int id);
 
 
    /** adds a variable to both halfedges and captures it for usage in the graph */

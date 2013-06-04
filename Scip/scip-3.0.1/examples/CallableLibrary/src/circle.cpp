@@ -38,24 +38,24 @@ using namespace tree;
 
 
 
-int idtoid(GRAPH* G, long int id)
-{
-	for(unsigned int i = 0; i < G->nnodes; i++)
-		if(G->nodes[i].stadtid == id)
-			return i;
-	exit(-1);
-}
-
-string convertinttostring(const int i)
-{
-	int j = i;
-	stringstream ss;
-	if( j < 10 )
-		ss << "0" << j;
-	else
-		ss << j;
-	return ss.str();
-}
+//int idtoid(GRAPH* G, long int id)
+//{
+//	for(unsigned int i = 0; i < G->nnodes; i++)
+//		if(G->nodes[i].stadtid == id)
+//			return i;
+//	exit(-1);
+//}
+//
+//string convertinttostring(const int i)
+//{
+//	int j = i;
+//	stringstream ss;
+//	if( j < 10 )
+//		ss << "0" << j;
+//	else
+//		ss << j;
+//	return ss.str();
+//}
 
 
 int getwahlkreisid(SCIP_VAR* var)
