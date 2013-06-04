@@ -99,7 +99,8 @@ void ReaderWP::getNodesFromFile(
 
 		node++;
 		i++;
-		getline(filedata, token, ',');
+		if (i != graph->nnodes)
+			getline(filedata, token, ',');
 	}
 	assert( i == graph->nnodes );
 
@@ -114,8 +115,10 @@ void ReaderWP::getEdgesFromFile(
 )
 {
 
+	std::cout << "getEdgesFromFile - start" << std::endl;
+
 	/* Definitions */
-	string token;
+	string token ="e";
 
 	GRAPHNODE* nodestart;             // the two incident nodes of an edge
 	GRAPHNODE* nodeend;
@@ -135,14 +138,20 @@ void ReaderWP::getEdgesFromFile(
 	edgeforw = &( graph->edges[0] );
 	edgebackw = &( graph->edges[graph->nedges / 2] );
 
+	std::cout << "token: " << token << std::endl;
+
 	// extract every edge out of the filestream
-	while (token.compare("e") && i < graph->nedges && !filedata.eof() )
+	while (!token.compare("e") && i < graph->nedges && !filedata.eof() )
 	{
+		std::cout << " Kante Nr: " << i << std::endl;
+
 		/* Get informations from Filedata */
 		getline(filedata, idStart, ',');
 		iidStart =  atol(idStart.c_str());
-		getline(filedata, idTarget, ',');
-		iidTarget =  atol(idStart.c_str());
+		std::cout << "iidStart: " <<iidStart << std::endl;
+		getline(filedata, idTarget);
+		iidTarget =  atol(idTarget.c_str());
+		std::cout << "iidTarget: " <<iidTarget << std::endl;
 
 		// Brauchen zu iidStart und iidTargent die interne Nodesid
 		for ( int id = 0 ; id < graph->nnodes ; id++  )
@@ -192,6 +201,7 @@ void ReaderWP::getEdgesFromFile(
 
 		i++;
 		getline(filedata, token, ',');
+		std::cout << "token unten: " << token << std::endl;
 	}
 	assert( i == graph->nedges );
 
@@ -353,6 +363,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	{
 		getline(filedata, tmp, ',');
 		std::cout << "tmp: " << tmp << std::endl;
+		std::cout << "tmp[0]: " << tmp[0] << std::endl;
 
 		//exit(-1);
 		if(tmp[1] == '#')
@@ -368,10 +379,11 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 			std::cout << "Knoten eingelesen!" << std::endl;
 		}
 
-		else if(tmp[1] == 'e')
+		else if(tmp[0] == 'e')
 		{
 			std::cout << "scip_read_e" << std::endl;
 			ReaderWP::getEdgesFromFile(filedata, graph);
+			std::cout << "Kanten eingelesen!" << std::endl;
 		}
 
 		else
