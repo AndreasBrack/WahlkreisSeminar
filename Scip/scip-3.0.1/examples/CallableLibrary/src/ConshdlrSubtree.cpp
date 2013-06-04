@@ -36,6 +36,7 @@ SCIP_Bool findSubtree(
 {
 	GRAPHNODE* node, first_node;
 	GRAPHEDGE* edge;
+	GRAPHEDGE* edge2;
 	graph->nnodes;
 	std::set<GRAPHNODE*> set_nodes;
 	for (int i = 0 ; i < graph->nnodes ; ++i) {
