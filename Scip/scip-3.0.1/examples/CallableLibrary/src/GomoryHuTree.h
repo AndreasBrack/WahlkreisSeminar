@@ -68,7 +68,7 @@ typedef struct GraphEdge
 { 
 	double                cap;           /**< capacity used in maxflow */
 	double                rcap;          /**< residual capacity used in maxflow */
-	double                length;        /**< length of the edge measured by some fixed metric */
+	double                length;        /**< length of the edge measured by some fixed metric */ // nicht gesetzt!
 
 	struct GraphEdge      *next;         /**< in incidence list of node from which edge is emanating */
 	struct GraphEdge      *back;         /**< pointer to reverse edge */
@@ -86,6 +86,8 @@ typedef struct Graph
 	int                   nnodes;        /**< number of nodes of the graph */
 	int                   nedges;        /**< number of edges */
 	int                   nedgesnonzero;
+
+	int 				  nwahlkreise;
 
 	GRAPHNODE             *nodes;        /**< array containing the nodes of the graph */
 
