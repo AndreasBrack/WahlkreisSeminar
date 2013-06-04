@@ -30,12 +30,58 @@ struct SCIP_ConsData
 static
 SCIP_Bool findSubtree(
    SCIP*              scip,               /**< SCIP data structure */
-   Bundesland*        B,	              /**< underlying B */
+   GRAPH* 			  graph,	              /**< underlying B */
    SCIP_SOL*          sol                 /**< proposed solution */
    )
 {
+	GRAPHNODE* node, first_node;
+	GRAPHEDGE* edge;
+	graph->nnodes;
+	std::set<GRAPHNODE*> set_nodes;
+	node = graph->nodes;
+	while (node->bfs_link != NULL) {
+		set_nodes.insert(node);
+		node = node->bfs_link;
+	}
+	first_node = set_nodes.begin();
+	bool tmp = findSubtreeRecursive(scip, graph, sol, *set_nodes, first_node);
 	return TRUE;
 }
+
+
+static
+SCIP_Bool findSubtreeRecursive(SCIP*              scip,               /**< SCIP data structure */
+		   	   	   	   	   	   GRAPH* 			  graph,	           /**< underlying B */
+		   	   	   	   	   	   SCIP_SOL*          sol,                 /**< proposed solution */
+		   	   	   	   	   	   set<GRAPHNODE*>*	  set_nodes,            /**< nodes of graph */
+		   	   	   	   	   	   GRAPHNODE*		  node				   /**< current node */
+								)
+{
+	GRAPHEDGE* edge;
+	int ct_edges, ct_nodes = 0;
+
+	set_nodes->erase(node);
+	ct_nodes += 1;
+	edge = node->first_edge;
+
+	while(edge != NULL) {
+		GRAPHNODE* v_ziel = edge->adjac;
+		ct_edges += 1;
+
+		if (set_nodes->find(v_ziel))  // v_ziel currently not observed
+			if (!findSubtreeRecursive(scip, graph, sol, set_nodes, v_ziel))
+					return FALSE;
+
+		edge = edge->next;
+	}
+
+	if (ct_edges != (ct_nodes-1)*2) { // Kantenanzahl = Knotenanzahl-1 im Baum
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 
 /* separates subtree elemination cuts */
 static
