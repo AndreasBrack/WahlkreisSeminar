@@ -46,7 +46,7 @@ void ReaderWP::getNodesFromFile(
 )
 {
 	/* Definitions */
-	string token;
+	string token = "v";
 	string id;
 	long int iid;
 
@@ -69,12 +69,13 @@ void ReaderWP::getNodesFromFile(
 	GRAPHNODE* node = &(graph->nodes[0]);
 
 	// extract every node out of the filestream
-	while (token.compare("v") && i < graph->nnodes && !filedata.eof() )
+	while (!token.compare("v") && i < graph->nnodes && !filedata.eof() )
 	{
 		/* Get informations from Filedata */
 		getline(filedata, id, ',');
 		iid =  atol(id.c_str());
 		getline(filedata, name, ',');
+		name = name.c_str();
 		getline(filedata, xkood, ',');
 		dxkood = strtod(xkood.c_str(), NULL);
 		getline(filedata, ykood, ',');
@@ -86,16 +87,15 @@ void ReaderWP::getNodesFromFile(
 
 		// assign everything
 		node->id = i;
-		if( nodenumber-1 != i)
-			cout<<"warning: nodenumber <" <<nodenumber<<"> does not match its index in node list <"<<i+1
-			<<">. Node will get number "<<i+1<<" when naming variables and constraints!"<<endl;
+
+
 		node->x = dxkood;
 		node->y = dykood;
 		node->first_edge = NULL;
 		node->bewohner = ibewohner;
 		node->kreisid = ikreisid;
 		node->stadtid = iid;
-		node->name = name;
+		//node->name = name; // SPEICHERZUGRIFFSFEHLER ########################################################
 
 		node++;
 		i++;
@@ -212,7 +212,7 @@ double ReaderWP::getavg(GRAPH* G, int nwahlkreise)
 	return ((double) gesamtbewohner) / ((double) nwahlkreise);
 }
 
-string convertinttostring(const int i)
+string ReaderWP::convertinttostring(const int i)
 {
 	int j = i;
 	stringstream ss;
@@ -223,7 +223,7 @@ string convertinttostring(const int i)
 	return ss.str();
 }
 
-int idtoid(GRAPH* G, long int id)
+int ReaderWP::idtoid(GRAPH* G, long int id)
 {
 	for(unsigned int i = 0; i < G->nnodes; i++)
 		if(G->nodes[i].stadtid == id)
@@ -239,6 +239,7 @@ SCIP_RETCODE ReaderWP::addVarToEdges(
 		SCIP_VAR*             var                 /**< variable corresponding to that edge */
 )
 {
+
 	assert(scip != NULL);
 	assert(edge != NULL);
 	assert(var != NULL);
@@ -272,6 +273,8 @@ SCIP_DECL_READERFREE(ReaderWP::scip_free)
 SCIP_DECL_READERREAD(ReaderWP::scip_read)
 {
 
+	std::cout << "scip_read" << std::endl;
+
 	int nedges = 0;
 	int nnodes = 0;
 	int nwahlkreise = 0;
@@ -298,8 +301,10 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 		return SCIP_READERROR;
 	filedata.clear();
 
+	std::cout << "scip_read_1" << std::endl;
+
 	// read the first lines of information
-	while( !filedata.eof() && (nnodes == 0 || nedges == 0))
+	while( !filedata.eof() && (nnodes == 0 || nedges == 0  || nwahlkreise == 0 ))
 	{
 		filedata >> token;
 
@@ -329,41 +334,56 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 		}
 	}
 
+	std::cout << "scip_read_2" << std::endl;
+
 	/* if we have the number of nodes and edges we construct the graph */
 	if( ! create_graph(nnodes, 2*nedges, &graph) ) // 2*nedges for forward, backward edge
 		return SCIP_READERROR;
 
 	graph->nwahlkreise = nwahlkreise;
 
+	std::cout << "Dim:" << graph->nnodes << " Kant: " << graph->nedges << " nWK: " << graph->nwahlkreise << std::endl;
+
+	std::cout << "scip_read_3" << std::endl;
+
 	/* read in the nodes and edges */
-	getline(filedata, token, ',');
+	//getline(filedata, token, ',');
+	//std::cout << "token:" << token[1] << std::endl;
 	while( !filedata.eof() )
 	{
 		getline(filedata, tmp, ',');
+		std::cout << "tmp: " << tmp << std::endl;
 
-		if(tmp[0] == '#')
+		//exit(-1);
+		if(tmp[1] == '#')
 		{
+			std::cout << "scip_read_#" << std::endl;
 			continue;
 		}
 
-		else if(tmp[0] == 'v')
+		else if(tmp[1] == 'v')
 		{
+			std::cout << "scip_read_v" << std::endl;
 			ReaderWP::getNodesFromFile(filedata, graph);
+			std::cout << "Knoten eingelesen!" << std::endl;
 		}
 
-		else if(tmp[0] == 'e')
+		else if(tmp[1] == 'e')
 		{
+			std::cout << "scip_read_e" << std::endl;
 			ReaderWP::getEdgesFromFile(filedata, graph);
 		}
 
 		else
 		{
+			std::cout << "scip_read_else" << std::endl;
 			SCIPdebugMessage("Not parsing a line.");
 		}
 	}
 
 	// END: Input einlesen +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+	std::cout << "scip_read_end_input" << std::endl;
 
 
 	// create the problem's data structure

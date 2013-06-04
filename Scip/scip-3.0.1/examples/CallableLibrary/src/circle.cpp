@@ -370,7 +370,10 @@ double getavg(GRAPH G, int nwahlkreise)
 
 /* runs circle enclosing example */
 static
-SCIP_RETCODE runCircle(void)
+SCIP_RETCODE runCircle(
+		   int                        argc,          /**< number of arguments from the shell */
+		   char**                     argv           /**< array of shell arguments */
+		   )
 {
 	SCIP* scip;
 
@@ -388,25 +391,45 @@ SCIP_RETCODE runCircle(void)
 	SCIPinfoMessage(scip, NULL, "*********************************************\n");
 	SCIPinfoMessage(scip, NULL, "\n");
 
+	std::cout << "Vor einlesen!" << std::endl;
+
 
 	FILE* file = fopen("debug.txt", "w");
-	SCIPinfoMessage(scip, NULL, "Original problem:\n");
-	SCIP_CALL( SCIPprintOrigProblem(scip, file, NULL, FALSE) );
 
-	SCIPinfoMessage(scip, NULL, "\nSolving...\n");
-	SCIP_CALL( SCIPsolve(scip) );
+//	//SCIPinfoMessage(scip, NULL, "Original problem:\n");
+//	//SCIP_CALL( SCIPprintOrigProblem(scip, file, NULL, FALSE) );
+//
+//	//SCIPinfoMessage(scip, NULL, "\nSolving...\n");
+//	//SCIP_CALL( SCIPsolve(scip) );
+//
+//	//SCIP_CALL( SCIPfreeTransform(scip) );
+//
+//	if( SCIPgetNSols(scip) > 0 )
+//	{
+//		SCIPinfoMessage(scip, NULL, "\nSolution:\n");
+//		SCIP_CALL( SCIPprintSol(scip, SCIPgetBestSol(scip), NULL, FALSE) );
+//	}
+//
+//	SCIP_CALL( SCIPfree(&scip) );
+//
+//	return SCIP_OKAY;
 
-	SCIP_CALL( SCIPfreeTransform(scip) );
+   /**********************************
+	* Process command line arguments *
+	**********************************/
 
-	if( SCIPgetNSols(scip) > 0 )
-	{
-		SCIPinfoMessage(scip, NULL, "\nSolution:\n");
-		SCIP_CALL( SCIPprintSol(scip, SCIPgetBestSol(scip), NULL, FALSE) );
-	}
+   SCIP_CALL( SCIPprocessShellArguments(scip, argc, argv, "sciptsp.set") );
 
-	SCIP_CALL( SCIPfree(&scip) );
 
-	return SCIP_OKAY;
+   /********************
+	* Deinitialization *
+	********************/
+
+   SCIP_CALL( SCIPfree(&scip) );
+
+   BMScheckEmptyMemory();
+
+   return SCIP_OKAY;
 }
 
 /** main method starting SCIP */
@@ -416,7 +439,7 @@ int main(
 )  /*lint --e{715}*/
 {
 	SCIP_RETCODE retcode;
-	retcode = runCircle();
+	retcode = runCircle(argc, argv);
 
 	/* evaluate return code of the SCIP process */
 	if( retcode != SCIP_OKAY )
