@@ -57,6 +57,9 @@ Icon?
 ehthumbs.db
 Thumbs.db
 
+*~
+
+
 
 # stop ignoring our Source
 # !Scip/scip-3.0.1/examples/CallableLibrary/src/
