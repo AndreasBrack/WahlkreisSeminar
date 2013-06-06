@@ -30,7 +30,7 @@
 #include "scip/cons_linear.h"
 #include <math.h>
 
-#include "ConshdlrSubtree.h"
+//#include "ConshdlrSubtree.h"
 #include "ReaderWP.h"
 #include "ProbDataWP.h"
 
@@ -102,7 +102,9 @@ void ReaderWP::getNodesFromFile(
 		if (i != graph->nnodes)
 			getline(filedata, token, ',');
 	}
-	assert( i == graph->nnodes );
+	if ( i != graph->nnodes ) {
+		std::cout << "falsche Knotenanzahl!!" << std::endl;
+	}
 
 	if( i < graph->nnodes )
 		SCIPdebugMessage("zu wenige Knoten.");
@@ -115,7 +117,7 @@ void ReaderWP::getEdgesFromFile(
 )
 {
 
-	std::cout << "getEdgesFromFile - start" << std::endl;
+	//std::cout << "getEdgesFromFile - start" << std::endl;
 
 	/* Definitions */
 	string token ="e";
@@ -136,22 +138,22 @@ void ReaderWP::getEdgesFromFile(
 	int i = 0;
 
 	edgeforw = &( graph->edges[0] );
-	edgebackw = &( graph->edges[graph->nedges / 2] );
+	edgebackw = &( graph->edges[graph->nedges] );
 
-	std::cout << "token: " << token << std::endl;
+	//std::cout << "token: " << token << std::endl;
 
 	// extract every edge out of the filestream
 	while (!token.compare("e") && i < graph->nedges && !filedata.eof() )
 	{
-		std::cout << " Kante Nr: " << i << std::endl;
+		//std::cout << " Kante Nr: " << i << std::endl;
 
 		/* Get informations from Filedata */
 		getline(filedata, idStart, ',');
 		iidStart =  atol(idStart.c_str());
-		std::cout << "iidStart: " <<iidStart << std::endl;
+		//std::cout << "iidStart: " <<iidStart << std::endl;
 		getline(filedata, idTarget);
 		iidTarget =  atol(idTarget.c_str());
-		std::cout << "iidTarget: " <<iidTarget << std::endl;
+		//std::cout << "iidTarget: " <<iidTarget << std::endl;
 
 		// Brauchen zu iidStart und iidTargent die interne Nodesid
 		for ( int id = 0 ; id < graph->nnodes ; id++  )
@@ -201,9 +203,12 @@ void ReaderWP::getEdgesFromFile(
 
 		i++;
 		getline(filedata, token, ',');
-		std::cout << "token unten: " << token << std::endl;
+		//std::cout << "token unten: " << token << std::endl;
 	}
 	assert( i == graph->nedges );
+
+	if (i != graph->nedges)
+		std::cout << "falsche Kantenanzahl!" << std::endl;
 
 	if( i < graph->nedges )
 		SCIPdebugMessage("zu wenige Kanten.");
@@ -311,7 +316,6 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 		return SCIP_READERROR;
 	filedata.clear();
 
-	std::cout << "scip_read_1" << std::endl;
 
 	// read the first lines of information
 	while( !filedata.eof() && (nnodes == 0 || nedges == 0  || nwahlkreise == 0 ))
@@ -344,7 +348,8 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 		}
 	}
 
-	std::cout << "scip_read_2" << std::endl;
+	std::cout << "nnodes: " << nnodes << "   nedges: " << nedges << "   nwahlkreise: " << nwahlkreise << std::endl;
+
 
 	/* if we have the number of nodes and edges we construct the graph */
 	if( ! create_graph(nnodes, 2*nedges, &graph) ) // 2*nedges for forward, backward edge
@@ -354,7 +359,6 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 	std::cout << "Dim:" << graph->nnodes << " Kant: " << graph->nedges << " nWK: " << graph->nwahlkreise << std::endl;
 
-	std::cout << "scip_read_3" << std::endl;
 
 	/* read in the nodes and edges */
 	//getline(filedata, token, ',');
@@ -362,8 +366,8 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	while( !filedata.eof() )
 	{
 		getline(filedata, tmp, ',');
-		std::cout << "tmp: " << tmp << std::endl;
-		std::cout << "tmp[0]: " << tmp[0] << std::endl;
+		//std::cout << "tmp: " << tmp << std::endl;
+		//std::cout << "tmp[0]: " << tmp[0] << std::endl;
 
 		//exit(-1);
 		if(tmp[1] == '#')
@@ -395,11 +399,13 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 	// END: Input einlesen +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	std::cout << "scip_read_end_input" << std::endl;
+	std::cout << "### ENDE einlesen" << std::endl;
 
 
 	// create the problem's data structure
 	SCIP_CALL( SCIPcreateObjProb(scip, "WP-ProbData", new ProbDataWP(graph), TRUE) );
+
+	std::cout << "### nach SCIPcreateObjProb" << std::endl;
 
 
 	// BEGIN: Problem aufstellen  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -410,8 +416,10 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	FILE* file = fopen("debug.txt", "w");
 	#endif
 
+	//std::cout << "### vor SCIPcreateProbBasic" << std::endl;
 	/* create empty problem */
-	SCIP_CALL( SCIPcreateProbBasic(scip, "Wahlkreisproblem_Aufspannender_Wald_Modell") );
+	//SCIP_CALL( SCIPcreateProbBasic(scip, "WP-ProbData") );
+	//std::cout << "### nach SCIPcreateProbBasic" << std::endl;
 
 	double avg = ReaderWP::getavg(graph,graph->nwahlkreise);
 
@@ -463,6 +471,8 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	xvars.resize(graph->nnodes);
 
 
+	std::cout << "### BEGIN Problem aufstellen" << std::endl;
+
 	// VAR: a_max >=0 ####################################
 	// TODO: Zielfunktionskoeffizient!
 	// TODO: 0.15 variable halten, evtl in .gido einlesen.
@@ -477,7 +487,6 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 	for(int aktwk = 0; aktwk < graph->nwahlkreise; aktwk++)
 	{
-		// VAR: a_pos(aktwk) ####################################
 		SCIP_CALL( SCIPcreateVarBasic(scip, &newvar, ("a_pos"+convertinttostring(aktwk)).c_str(), 0, SCIPinfinity(scip),
 				0.0, SCIP_VARTYPE_CONTINUOUS) );
 #ifdef SCIP_DEBUG
@@ -506,19 +515,17 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 		SCIP_CALL( SCIPaddCons(scip, cons) );
 
-
 		for( unsigned int i = 0 ; i < graph->nnodes ; ++i )
 		{
-
 			// VAR: y(i,w) #########################################
 			/* Stadt i in Wahlkreis aktwk */
 			SCIP_CALL( SCIPcreateVarBasic(scip, &newvar,
-					("y_" + graph->nodes[i].name + "_" +  convertinttostring(aktwk)).c_str(),
+					("y_" + convertinttostring(graph->nodes[i].stadtid) + "_" +  convertinttostring(aktwk)).c_str(),
 					0, 1, 0.0, SCIP_VARTYPE_BINARY) );
 
 #ifdef SCIP_DEBUG
 			cout << "erzeuge y Variable für" << endl;
-			SCIPdebugMessage(("y_" + graph->nodes[i].name + "_" +  convertinttostring(aktwk)+"\n").c_str(), aktwk);
+			SCIPdebugMessage(("y_" + graph->nodes[i].stadtid + "_" +  convertinttostring(aktwk)+"\n").c_str(), aktwk);
 			SCIPprintVar(scip, newvar, file);
 #endif
 
@@ -529,7 +536,6 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 			ywahlkreisvars.push_back(newvar);
 			population[i] = graph->nodes[i].bewohner;
 		}
-
 
 		// CONS: Ausgeglichenheitscons ########################################
 		population[graph->nnodes    ] = - avg;
@@ -558,11 +564,16 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 		// for schleife über die Kanten
 		for( unsigned int it2 = 0 ; it2 < graph->nedges ; ++it2 )
 		{
+
+			std::cout << "Startkoten: " << graph->edges[it2].back->adjac->stadtid << std::endl;
+			std::cout << "Targetkoten: " << graph->edges[it2].adjac->stadtid << std::endl;
+
+
 			// VAR: x(i,j,w) ###################################
 			/* Erstellen der x vars: sind it1 und it2 im selben Wahlkreis und benachbart? */
 			// TODO Zielfunktionskoeffizient
 			SCIP_CALL( SCIPcreateVarBasic(scip, &newvar,
-					("x_" + graph->edges[it2].adjac->name + "_" + graph->edges[it2].back->adjac->name + "_" + convertinttostring(aktwk)).c_str(),
+					("x_" + convertinttostring(graph->edges[it2].adjac->stadtid) + "_" + convertinttostring(graph->edges[it2].back->adjac->stadtid) + "_" + convertinttostring(aktwk)).c_str(),
 					0, 1, 0.0, SCIP_VARTYPE_BINARY) );
 			SCIP_CALL( SCIPaddVar(scip, newvar) );
 
@@ -584,7 +595,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 			xleqyvals[1] = -1; // y(i,w)
 
 			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-					("x_" + graph->edges[it2].adjac->name  + graph->edges[it2].back->adjac->name + "_" +  convertinttostring(aktwk) + " <= y" + graph->edges[it2].adjac->name + "_" +  convertinttostring(aktwk) ).c_str(),
+					("x_" + convertinttostring(graph->edges[it2].adjac->stadtid) + convertinttostring(graph->edges[it2].back->adjac->stadtid) + "_" +  convertinttostring(aktwk) + " <= y" + convertinttostring(graph->edges[it2].adjac->stadtid)+ "_" +  convertinttostring(aktwk) ).c_str(),
 					2, xleqycons, xleqyvals, -SCIPinfinity(scip), 0,
 					TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 			SCIP_CALL( SCIPaddCons(scip, cons) );
@@ -595,7 +606,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 					xleqycons[1] = yvars[aktwk + numstadt2 * nwahlkreise];
 
 			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-					("x_" + graph->edges[it2].adjac->name  + graph->edges[it2].back->adjac->name + "_" +  convertinttostring(aktwk) + " <= y" + graph->edges[it2].back->adjac->name + "_" +  convertinttostring(aktwk) ).c_str(),
+					("x_" + convertinttostring(graph->edges[it2].adjac->stadtid) +"_"+ convertinttostring(graph->edges[it2].back->adjac->stadtid) + "_" +  convertinttostring(aktwk) + " <= y" + convertinttostring(graph->edges[it2].back->adjac->stadtid) + "_" +  convertinttostring(aktwk) ).c_str(),
 						2, xleqycons, xleqyvals, -SCIPinfinity(scip), 0,
 						TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 			SCIP_CALL( SCIPaddCons(scip, cons) );
@@ -618,6 +629,8 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 	}
 
+	std::cout << "### VAR2" << std::endl;
+
 
 	/* Town appears in exact one Constituency */
 	int numstadt = 0;
@@ -630,29 +643,60 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 		}
 
 		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-				("Stadt " + graph->nodes[it].name + "hatWK").c_str(),
+				("Stadt " + convertinttostring(graph->nodes[it].stadtid) + "hatWK").c_str(),
 				graph->nwahlkreise, ex1wkvars, ex1wkvals, 1, 1, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 		SCIP_CALL( SCIPaddCons(scip, cons) );
 		numstadt++;
 	}
 
+
+
+	for (int l = 0 ; l < graph->nnodes ; ++l) {
+		std::cout << "stadtid: " << graph->nodes[l].stadtid << " groesse von xvars.at(i)" << xvars.at(l).size() << std::endl;
+	}
+
+	for (int l = 0 ; l < xvars.at(0).size(); ++l) {
+		std::cout << "varname: " << SCIPvarGetName(xvars.at(0).at(l)) << std::endl;
+	}
+
+
 	/* Questionmark Constraints */
 	unsigned int count_grad;
 	for( unsigned int i = 0 ; i < graph->nnodes ; i++ )
 	{
-		count_grad = 0;
-		GRAPHEDGE* it_edge = graph->nodes[i].first_edge;
-		while( it_edge != NULL  )
-		{
-			count_grad +=1;
-			it_edge = it_edge->next;
+
+
+
+//		count_grad = 0;
+//		GRAPHEDGE* it_edge = graph->nodes[i].first_edge;
+//		int first_id = it_edge->adjac->id;
+
+//		do
+//		{
+//			std::cout << it_edge->adjac->id << std::endl;
+//			count_grad +=1;
+//			it_edge = it_edge->next;
+//		} while( first_id != it_edge->adjac->id );
+
+		std::cout << " ### OUT 1 " << std::endl;
+
+		std::cout << "count_grad: " << xvars.at(i).size()/graph->nwahlkreise << std::endl;
+
+		for (int l = 0 ; l < graph->nnodes ; ++l) {
+			std::cout << "stadtid: " << graph->nodes[l].stadtid << " groesse von xvars.at(i)" << xvars.at(l).size() << std::endl;
 		}
 
-		for ( unsigned int j = 0 ; j < count_grad*2*graph->nwahlkreise ; j++)
+		for ( unsigned int j = 0 ; j < xvars.at(i).size() ; j++)
 		{
+			std::cout << "j: " << j << std::endl;
 			questionvals[j] = 1;
+			std::cout << "nach vals" <<  std::endl;
+
 			questionvars[j] = xvars.at(i).at(j);
+			std::cout << "nach vars" <<  std::endl;
 		}
+
+		std::cout << " ### OUT 2 " << std::endl;
 
 		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
 				(convertinttostring( graph->nodes[i].stadtid) + "?-cons").c_str(), xvars.at(i).size(),
@@ -660,7 +704,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE) );
 		SCIP_CALL( SCIPaddCons(scip, cons) );
 	}
-
+	std::cout << "### VAR4" << std::endl;
 
 
 
@@ -672,10 +716,10 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 
 	/* last, we need a constraint forbidding "subtrees" */
-	SCIP_CALL( SCIPcreateConsSubtree(scip, &cons, "subtree", graph,
-	         FALSE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, TRUE ) );
-	SCIP_CALL( SCIPaddCons(scip, cons) );
-	SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+	//SCIP_CALL( SCIPcreateConsSubtree(scip, &cons, "subtree", graph,
+	//         FALSE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, TRUE ) );
+	//SCIP_CALL( SCIPaddCons(scip, cons) );
+	//SCIP_CALL( SCIPreleaseCons(scip, &cons) );
 
 
 	SCIPdebugMessage("Last steps\n");

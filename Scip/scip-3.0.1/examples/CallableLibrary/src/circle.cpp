@@ -24,7 +24,7 @@
 
 
 #include "GomoryHuTree.h"
-#include "ConshdlrSubtree.h"
+//#include "ConshdlrSubtree.h"
 #include "ReaderWP.h"
 #include "ProbDataWP.h"
 #include "scip/scip.h"
@@ -381,7 +381,7 @@ SCIP_RETCODE runCircle(
 
 
 	SCIP_CALL( SCIPincludeObjReader(scip, new tree::ReaderWP(scip), TRUE) );
-	SCIP_CALL( SCIPincludeObjConshdlr(scip, new ConshdlrSubtree(scip), TRUE) );
+	//SCIP_CALL( SCIPincludeObjConshdlr(scip, new ConshdlrSubtree(scip), TRUE) );
 
 	SCIP_CALL( SCIPincludeDefaultPlugins(scip) );
 
