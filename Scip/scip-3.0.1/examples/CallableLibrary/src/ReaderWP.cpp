@@ -95,6 +95,7 @@ void ReaderWP::getNodesFromFile(
 		node->bewohner = ibewohner;
 		node->kreisid = ikreisid;
 		node->stadtid = iid;
+		// TODO: wirds noch benötigt? Oder alles über stadtid?
 		//node->name = name; // SPEICHERZUGRIFFSFEHLER ########################################################
 
 		node++;
@@ -172,6 +173,10 @@ void ReaderWP::getEdgesFromFile(
         edgebackw->adjac = nodestart;
         edgeforw->back = edgebackw;
         edgebackw->back = edgeforw;
+
+        // resize edge->var_v
+        edgeforw->var_v.resize(graph->nwahlkreise);
+        edgebackw->var_v.resize(graph->nwahlkreise);
 
 
         // insert one of the halfedges into the edge list of the node
@@ -251,7 +256,8 @@ int ReaderWP::idtoid(GRAPH* G, long int id)
 SCIP_RETCODE ReaderWP::addVarToEdges(
 		SCIP*                 scip,               /**< SCIP data structure */
 		GRAPHEDGE*            edge,               /**< an edge of the graph */
-		SCIP_VAR*             var                 /**< variable corresponding to that edge */
+		SCIP_VAR*             var,                 /**< variable corresponding to that edge */
+		int 				  wk
 )
 {
 
@@ -260,13 +266,13 @@ SCIP_RETCODE ReaderWP::addVarToEdges(
 	assert(var != NULL);
 
 	/* add variable to forward edge and capture it for usage in graph */
-	edge->var = var;
-	SCIP_CALL( SCIPcaptureVar(scip, edge->var) );
+	edge->var_v[wk] = var;
+	SCIP_CALL( SCIPcaptureVar(scip, edge->var_v[wk]) );
 
 	/* two parallel halfedges have the same variable,
 	 * add variable to backward edge and capture it for usage in graph */
-	edge->back->var = edge->var;
-	SCIP_CALL( SCIPcaptureVar(scip, edge->back->var) );
+	edge->back->var_v[wk] = edge->var_v[wk];
+	SCIP_CALL( SCIPcaptureVar(scip, edge->back->var_v[wk]) );
 
 	return SCIP_OKAY;
 }
@@ -577,6 +583,10 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 					0, 1, 0.0, SCIP_VARTYPE_BINARY) );
 			SCIP_CALL( SCIPaddVar(scip, newvar) );
 
+			SCIP_CALL ( addVarToEdges(scip, &graph->edges[it2], newvar, aktwk) );
+
+			//SCIP_CALL( addVarToEdges(scip, edge, var) );
+
 			/* Vorbereitung auf ? Constraints */
 			xvars.at(idtoid(graph, graph->edges[it2].adjac->stadtid )).push_back(newvar);
 			xvars.at(idtoid(graph, graph->edges[it2].back->adjac->stadtid )).push_back(newvar);
@@ -724,6 +734,8 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 	SCIPdebugMessage("Last steps\n");
 	/* release variables */
+	// TODO: Release all Vars?!
+	// TODO: Release all Cons?!
 	SCIP_CALL( SCIPreleaseVar(scip, &newvar) );
 
 	/* free memory */
