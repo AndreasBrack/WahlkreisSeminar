@@ -110,7 +110,8 @@ private:
    SCIP_RETCODE addVarToEdges(
       SCIP*                 scip,               /**< SCIP data structure */
       GRAPHEDGE*            edge,               /**< an edge of the graph */
-      SCIP_VAR*             var                 /**< variable corresponding to that edge */
+      SCIP_VAR*             var,                 /**< variable corresponding to that edge */
+      int 					wk
       );
 
 };

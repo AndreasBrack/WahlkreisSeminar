@@ -144,14 +144,18 @@ SCIP_RETCODE ProbDataWP::scip_copy(
       GRAPHEDGE * edgeforw  = &(graph->edges[e]);
       GRAPHEDGE * edgebackw = &(graph->edges[e + m]);
 
-      assert( sourcegraph->edges[e].var != NULL );
-      SCIP_CALL( SCIPgetVarCopy(sourcescip, scip, sourcegraph->edges[e].var, &(edgeforw->var), varmap, consmap, global, &success) );
-      assert(success);
-      assert(edgeforw->var != NULL);
+      for (int wk = 0 ; wk < graph->nwahlkreise ; ++wk)
+      {
 
-      // anti-parallel arcs share variable
-      edgebackw->var = edgeforw->var;
-      SCIP_CALL( SCIPcaptureVar(scip, edgebackw->var) );
+    	  assert( sourcegraph->edges[e].var_v[wk] != NULL );
+      	  SCIP_CALL( SCIPgetVarCopy(sourcescip, scip, sourcegraph->edges[e].var_v[wk], &(edgeforw->var_v[wk]), varmap, consmap, global, &success) );
+      	  assert(success);
+      	  assert(edgeforw->var_v[wk] != NULL);
+
+      	  // anti-parallel arcs share variable
+      	  edgebackw->var_v[wk] = edgeforw->var_v[wk];
+      	  SCIP_CALL( SCIPcaptureVar(scip, edgebackw->var_v[wk]) );
+      }
    }
 
    // allocate memory for target prob data
@@ -183,7 +187,10 @@ SCIP_RETCODE ProbDataWP::scip_delorig(
 {
    for( int i = 0; i < graph_->nedges; i++ )
    {
-      SCIP_CALL( SCIPreleaseVar(scip, &graph_->edges[i].var) );
+	   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
+	   {
+		   SCIP_CALL( SCIPreleaseVar(scip, &graph_->edges[i].var_v[wk]) );
+	   }
    }
    release_graph(&graph_);
 
@@ -204,7 +211,11 @@ SCIP_RETCODE ProbDataWP::scip_deltrans(
 {
    for( int i = 0; i < graph_->nedges; i++ )
    {
-      SCIP_CALL( SCIPreleaseVar(scip, &graph_->edges[i].var) );
+	   for (int wk = 0; wk < graph_->nwahlkreise ; ++wk)
+	   {
+		    SCIP_CALL( SCIPreleaseVar(scip, &graph_->edges[i].var_v[wk]) );
+	   }
+
    }
    release_graph(&graph_);
    
@@ -233,6 +244,8 @@ SCIP_RETCODE ProbDataWP::scip_trans(
    assert( objprobdata != NULL );
    assert( deleteobject != NULL );
 
+   std::cout << "############ Ausgabe scip_trans" << std::endl;
+
    assert( graph_ != NULL );
 
    // copy graph
@@ -246,17 +259,43 @@ SCIP_RETCODE ProbDataWP::scip_trans(
       GRAPHEDGE * edgeforw  = &(transgraph->edges[e]);
       GRAPHEDGE * edgebackw = &(transgraph->edges[e + m]);
 
-      assert( graph_->edges[e].var != NULL );
-      SCIP_CALL( SCIPgetTransformedVar(scip, graph_->edges[e].var, &(edgeforw->var)) );
-      edgebackw->var = edgeforw->var; // anti-parallel arcs share variable
-      assert( edgebackw->var != NULL );
-      SCIP_CALL( SCIPcaptureVar(scip, edgebackw->var) );
+      std::cout << "########## Kante nr: " << e << std::endl;
+
+      for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
+      {
+    	  std::cout << "########## wk nr: " << wk << std::endl;
+
+    	  assert( graph_->edges[e].var_v[wk] != NULL );
+
+    	  std::cout << "############ Ausgabe scip_trans1" << std::endl;
+
+    	  std::cout << "Name: " << SCIPvarGetName( graph_->edges[e].var_v[wk] )  << std::endl;
+
+    	  std::cout << "#### var_v größe: " << graph_->edges[e].var_v.size() << std::endl;
+
+
+
+
+    	  SCIP_CALL( SCIPgetTransformedVar(scip, graph_->edges[e].var_v[wk], &(edgeforw->var_v[wk])) );
+
+    	  std::cout << "############ Ausgabe scip_trans1" << std::endl;
+
+    	  edgebackw->var_v[wk] = edgeforw->var_v[wk]; // anti-parallel arcs share variable
+
+    	  std::cout << "############ Ausgabe scip_trans1" << std::endl;
+
+    	  assert( edgebackw->var_v[wk] != NULL );
+    	  SCIP_CALL( SCIPcaptureVar(scip, edgebackw->var_v[wk]) );
+      }
    }
+
+   std::cout << "############ Ausgabe scip_trans1" << std::endl;
 
    // allocate memory for target prob data
    ProbDataWP * transprobdatawp = new ProbDataWP(transgraph);
    assert( transprobdatawp != NULL );
 
+   std::cout << "############ Ausgabe scip_trans2" << std::endl;
    // save data pointer
    assert( objprobdata != NULL );
    *objprobdata = transprobdatawp;
@@ -264,6 +303,8 @@ SCIP_RETCODE ProbDataWP::scip_trans(
    // graph is captured by ProbDataWP(graph)
    release_graph(&transgraph);
    
+   std::cout << "############ Ausgabe scip_trans 3" << std::endl;
+
    *deleteobject = TRUE;
 
    return SCIP_OKAY;

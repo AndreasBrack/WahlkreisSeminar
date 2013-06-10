@@ -75,7 +75,9 @@ typedef struct GraphEdge
 
 	GRAPHNODE             *adjac;        /**< pointer to adjacent node */
 
+	//TODO: .var -> .var[#nwahlkreise]
 	SCIP_VAR*             var;
+	vector<SCIP_VAR*> var_v;
 
 } GRAPHEDGE;
 
