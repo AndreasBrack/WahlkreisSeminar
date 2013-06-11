@@ -241,6 +241,14 @@ string ReaderWP::convertinttostring(const int i)
 	else
 		ss << j;
 	return ss.str();
+
+}
+
+string ReaderWP::convertInt(int number)
+{
+   stringstream ss;//create a stringstream
+   ss << number;//add number to the stream
+   return ss.str();//return a string with the contents of the stream
 }
 
 int ReaderWP::idtoid(GRAPH* G, long int id)
@@ -413,6 +421,42 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 	std::cout << "### nach SCIPcreateObjProb" << std::endl;
 
+	//SCIP_CALL( SCIPsetObjsense(scip, SCIP_OBJSENSE_MINIMIZE) ); //per default min
+
+	// ############################################################################################################################
+
+//	for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+//	{
+//		for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
+//		{
+//		      SCIP_VAR* var;
+//
+//		      stringstream varname;
+//		      GRAPHEDGE* edge = &graph->edges[e_it];
+//
+//		      // the variable is named after the two nodes connected by the edge it represents
+//		      varname << "x_" << edge->back->adjac->stadtid << "_" << edge->adjac->stadtid << "_" << wk_it;
+//		      SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY,
+//		    		  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
+//
+//		      std::cout << "++++test1" << std::endl;
+//
+//		      /* add variable to SCIP and to the graph */
+//		      SCIP_CALL( SCIPaddVar(scip, var) );
+//		      std::cout << "++++test2" << std::endl;
+//		      SCIP_CALL( addVarToEdges(scip, edge, var, wk_it) );
+//		      std::cout << "++++test3" << std::endl;
+//
+//		      /* release variable for the reader. */
+//		      SCIP_CALL( SCIPreleaseVar(scip, &var) );
+//		}
+//
+//	}
+
+
+
+	// ############################################################################################################################
+
 
 	// BEGIN: Problem aufstellen  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -427,7 +471,20 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	//SCIP_CALL( SCIPcreateProbBasic(scip, "WP-ProbData") );
 	//std::cout << "### nach SCIPcreateProbBasic" << std::endl;
 
+
+	// TODO : avg sollte Ganzzahlig sein? !
 	double avg = ReaderWP::getavg(graph,graph->nwahlkreise);
+
+//	std::cout << graph->nodes[0].stadtid << " po: "<< graph->nodes[0].bewohner << std::endl;
+//
+//	std::cout << (graph->nodes[0].stadtid) << " po: "<< graph->nodes[0].bewohner << std::endl;
+//
+//	stringstream name;
+//	name << "y_" << graph->nodes[0].stadtid << "_" << 12 ;
+//	std::cout << name.str() << std::endl;
+
+
+	std::cout << "avg: " << avg << std::endl;
 
 	SCIP_VAR* newvar;
 	SCIP_CONS* cons;
@@ -482,7 +539,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	// VAR: a_max >=0 ####################################
 	// TODO: Zielfunktionskoeffizient!
 	// TODO: 0.15 variable halten, evtl in .gido einlesen.
-	SCIP_CALL( SCIPcreateVarBasic(scip, &newvar, "a_max", 0.15, SCIPinfinity(scip), 0.0, SCIP_VARTYPE_CONTINUOUS) );
+	SCIP_CALL( SCIPcreateVarBasic(scip, &newvar, "a_max",  0, 0.5 , 5.0, SCIP_VARTYPE_CONTINUOUS) );
 #ifdef SCIP_DEBUG
 	SCIPdebugPrintf("Amax \n");
 	SCIPprintVar(scip, newvar, file);
@@ -516,7 +573,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 		/* a_max >= a_pos + a_neg <=> a_pos + a_neg - a_max <= 0*/
 		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-				("a_pos + a_neg <= a_max ("+ convertinttostring(aktwk) +")").c_str(),
+				("a_pos_+_a_neg_<_=_a_max_("+ convertinttostring(aktwk) +")").c_str(),
 				3, acons, aconsvals, -SCIPinfinity(scip), 0,
 				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 		SCIP_CALL( SCIPaddCons(scip, cons) );
@@ -525,9 +582,14 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 		{
 			// VAR: y(i,w) #########################################
 			/* Stadt i in Wahlkreis aktwk */
+
+			stringstream name;
+			name << "y_" << graph->nodes[i].stadtid << "_" << aktwk ;
+
 			SCIP_CALL( SCIPcreateVarBasic(scip, &newvar,
-					("y_" + convertinttostring(graph->nodes[i].stadtid) + "_" +  convertinttostring(aktwk)).c_str(),
+					(name).str().c_str(),
 					0, 1, 0.0, SCIP_VARTYPE_BINARY) );
+			name.str("");
 
 #ifdef SCIP_DEBUG
 			cout << "erzeuge y Variable für" << endl;
@@ -578,9 +640,14 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 			// VAR: x(i,j,w) ###################################
 			/* Erstellen der x vars: sind it1 und it2 im selben Wahlkreis und benachbart? */
 			// TODO Zielfunktionskoeffizient
+
+			stringstream name;
+			name << "x_" << graph->edges[it2].adjac->stadtid << "_" << graph->edges[it2].back->adjac->stadtid << "_" << aktwk ;
+
 			SCIP_CALL( SCIPcreateVarBasic(scip, &newvar,
-					("x_" + convertinttostring(graph->edges[it2].adjac->stadtid) + "_" + convertinttostring(graph->edges[it2].back->adjac->stadtid) + "_" + convertinttostring(aktwk)).c_str(),
+					(name.str()).c_str(),
 					0, 1, 0.0, SCIP_VARTYPE_BINARY) );
+			name.str("");
 			SCIP_CALL( SCIPaddVar(scip, newvar) );
 
 			SCIP_CALL ( addVarToEdges(scip, &graph->edges[it2], newvar, aktwk) );
@@ -603,6 +670,10 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 			xleqyvals[0] = 1; // x(i,j,w)
 			xleqyvals[1] = -1; // y(i,w)
+
+			// TODO
+			//stringstream name;
+			//name << "x_" << graph->edges[it2].adjac->stadtid <<"_"<< graph->edges[it2].back->adjac->stadtid << "_" <<aktwk << " <= y" + convertinttostring(graph->edges[it2].adjac->stadtid)+ "_" +  convertinttostring(aktwk) ;
 
 			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
 					("x_" + convertinttostring(graph->edges[it2].adjac->stadtid) + convertinttostring(graph->edges[it2].back->adjac->stadtid) + "_" +  convertinttostring(aktwk) + " <= y" + convertinttostring(graph->edges[it2].adjac->stadtid)+ "_" +  convertinttostring(aktwk) ).c_str(),
@@ -737,8 +808,8 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	// TODO: Release all Vars?!
 	// TODO: Release all Cons?!
 	SCIP_CALL( SCIPreleaseVar(scip, &newvar) );
-
-	/* free memory */
+//
+//	/* free memory */
 	SCIPfreeBufferArray(scip, &yvars);
 	SCIPfreeBufferArray(scip, &acons);
 	SCIPfreeBufferArray(scip, &xleqycons);

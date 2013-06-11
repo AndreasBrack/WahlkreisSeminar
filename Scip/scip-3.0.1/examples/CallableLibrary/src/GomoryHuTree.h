@@ -79,6 +79,8 @@ typedef struct GraphEdge
 	SCIP_VAR*             var;
 	vector<SCIP_VAR*> var_v;
 
+	//GraphEdge() : cap(),rcap(),length(),next(NULL), back(NULL), adjac(NULL), var(), var_v(2) {}
+
 } GRAPHEDGE;
 
 

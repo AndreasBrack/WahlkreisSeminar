@@ -45,6 +45,8 @@ SCIP_RETCODE copy_graph(
    if(!create_graph(n, 2*m, graph))
       return SCIP_NOMEMORY;
 
+   (*graph)->nwahlkreise = sourcegraph->nwahlkreise;
+
    // copy nodes
    for(int i = 0; i < n; ++i)
    {
@@ -144,7 +146,10 @@ SCIP_RETCODE ProbDataWP::scip_copy(
       GRAPHEDGE * edgeforw  = &(graph->edges[e]);
       GRAPHEDGE * edgebackw = &(graph->edges[e + m]);
 
-      for (int wk = 0 ; wk < graph->nwahlkreise ; ++wk)
+      edgebackw->var_v.resize(sourcegraph->nwahlkreise);
+      edgeforw->var_v.resize(sourcegraph->nwahlkreise);
+
+      for (int wk = 0 ; wk < sourcegraph->nwahlkreise ; ++wk)
       {
 
     	  assert( sourcegraph->edges[e].var_v[wk] != NULL );
@@ -259,6 +264,9 @@ SCIP_RETCODE ProbDataWP::scip_trans(
       GRAPHEDGE * edgeforw  = &(transgraph->edges[e]);
       GRAPHEDGE * edgebackw = &(transgraph->edges[e + m]);
 
+      edgeforw->var_v.resize(graph_->nwahlkreise);
+      edgebackw->var_v.resize(graph_->nwahlkreise);
+
       std::cout << "########## Kante nr: " << e << std::endl;
 
       for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
@@ -273,7 +281,7 @@ SCIP_RETCODE ProbDataWP::scip_trans(
 
     	  std::cout << "#### var_v größe: " << graph_->edges[e].var_v.size() << std::endl;
 
-
+    	  std::cout << "#### edgeforw var_v größe: " << edgeforw->var_v.size() << std::endl;
 
 
     	  SCIP_CALL( SCIPgetTransformedVar(scip, graph_->edges[e].var_v[wk], &(edgeforw->var_v[wk])) );

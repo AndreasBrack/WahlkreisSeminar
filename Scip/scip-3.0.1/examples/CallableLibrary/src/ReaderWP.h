@@ -103,6 +103,8 @@ private:
 
    string convertinttostring(const int i);
 
+   string convertInt(int number);
+
    int idtoid(GRAPH* G, long int id);
 
 
