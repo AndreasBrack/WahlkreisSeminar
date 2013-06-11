@@ -391,8 +391,6 @@ SCIP_RETCODE runCircle(
 	SCIPinfoMessage(scip, NULL, "*********************************************\n");
 	SCIPinfoMessage(scip, NULL, "\n");
 
-	std::cout << "Vor einlesen!" << std::endl;
-
 
 	FILE* file = fopen("debug.txt", "w");
 

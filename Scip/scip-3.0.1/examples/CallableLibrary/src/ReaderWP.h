@@ -116,6 +116,14 @@ private:
       int 					wk
       );
 
+   /** adds a variable to a node and captures it for usage in the graph */
+   SCIP_RETCODE addVarToNodes(
+      SCIP*                 scip,               /**< SCIP data structure */
+      GRAPHNODE*            node,               /**< an node of the graph */
+      SCIP_VAR*             var,                 /**< variable corresponding to that node */
+      int 					wk
+      );
+
 };
 
 } /* namespace tree */

@@ -98,6 +98,8 @@ void ReaderWP::getNodesFromFile(
 		// TODO: wirds noch benötigt? Oder alles über stadtid?
 		//node->name = name; // SPEICHERZUGRIFFSFEHLER ########################################################
 
+		node->var_v.resize(graph->nwahlkreise);
+
 		node++;
 		i++;
 		if (i != graph->nnodes)
@@ -285,6 +287,25 @@ SCIP_RETCODE ReaderWP::addVarToEdges(
 	return SCIP_OKAY;
 }
 
+/** adds a variable to nodes and captures it for usage in the graph */
+SCIP_RETCODE ReaderWP::addVarToNodes(
+		SCIP*                 scip,               /**< SCIP data structure */
+		GRAPHNODE*            node,               /**< an edge of the graph */
+		SCIP_VAR*             var,                 /**< variable corresponding to that edge */
+		int 				  wk
+)
+{
+
+	assert(scip != NULL);
+	assert(node != NULL);
+	assert(var != NULL);
+
+	node->var_v[wk] = var;
+	SCIP_CALL( SCIPcaptureVar(scip, node->var_v[wk]) );
+
+	return SCIP_OKAY;
+}
+
 /** destructor of file reader to free user data (called when SCIP is exiting) */
 SCIP_DECL_READERFREE(ReaderWP::scip_free)
 {
@@ -371,6 +392,9 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 	graph->nwahlkreise = nwahlkreise;
 
+	graph->a_pos_var_v.resize( graph->nwahlkreise );
+	graph->a_neg_var_v.resize( graph->nwahlkreise );
+
 	std::cout << "Dim:" << graph->nnodes << " Kant: " << graph->nedges << " nWK: " << graph->nwahlkreise << std::endl;
 
 
@@ -415,6 +439,8 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 	std::cout << "### ENDE einlesen" << std::endl;
 
+	// TODO: avg auch über wp-file einlesen
+	double avg = ReaderWP::getavg(graph,graph->nwahlkreise);
 
 	// create the problem's data structure
 	SCIP_CALL( SCIPcreateObjProb(scip, "WP-ProbData", new ProbDataWP(graph), TRUE) );
@@ -423,405 +449,720 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 	//SCIP_CALL( SCIPsetObjsense(scip, SCIP_OBJSENSE_MINIMIZE) ); //per default min
 
-	// ############################################################################################################################
-
-//	for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
-//	{
-//		for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
-//		{
-//		      SCIP_VAR* var;
-//
-//		      stringstream varname;
-//		      GRAPHEDGE* edge = &graph->edges[e_it];
-//
-//		      // the variable is named after the two nodes connected by the edge it represents
-//		      varname << "x_" << edge->back->adjac->stadtid << "_" << edge->adjac->stadtid << "_" << wk_it;
-//		      SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY,
-//		    		  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
-//
-//		      std::cout << "++++test1" << std::endl;
-//
-//		      /* add variable to SCIP and to the graph */
-//		      SCIP_CALL( SCIPaddVar(scip, var) );
-//		      std::cout << "++++test2" << std::endl;
-//		      SCIP_CALL( addVarToEdges(scip, edge, var, wk_it) );
-//		      std::cout << "++++test3" << std::endl;
-//
-//		      /* release variable for the reader. */
-//		      SCIP_CALL( SCIPreleaseVar(scip, &var) );
-//		}
-//
-//	}
-
-
 
 	// ############################################################################################################################
+	// # x(i,j,w)-Variablen
+	// ############################################################################################################################
+	for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+	{
+		for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
+		{
+		      SCIP_VAR* var;
+
+		      stringstream varname;
+		      GRAPHEDGE* edge = &graph->edges[e_it];
+
+		      // the variable is named after the two nodes connected by the edge it represents
+		      varname << "x_" << edge->back->adjac->stadtid << "_" << edge->adjac->stadtid << "_" << wk_it;
+		      SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY,
+		    		  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
+
+		      /* add variable to SCIP and to the graph */
+		      SCIP_CALL( SCIPaddVar(scip, var) );
+		      SCIP_CALL( addVarToEdges(scip, edge, var, wk_it) );
+
+		      /* release variable for the reader. */
+		      SCIP_CALL( SCIPreleaseVar(scip, &var) );
+		}
+
+	}
+
+	// ############################################################################################################################
+	// y(i,w)-Variablen
+	// ############################################################################################################################
+	for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+	{
+		for ( int n_it = 0 ; n_it < graph->nnodes ; ++n_it )
+		{
+		      SCIP_VAR* var;
+
+		      stringstream varname;
+		      GRAPHNODE* node = &graph->nodes[n_it];
+
+		      // the variable is named after the two nodes connected by the edge it represents
+		      varname << "y_" << node->stadtid << "_" << wk_it;
+		      SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY,
+		    		  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
+
+		      /* add variable to SCIP and to the graph */
+		      SCIP_CALL( SCIPaddVar(scip, var) );
+		      SCIP_CALL( addVarToNodes(scip, node, var, wk_it) );
+
+		      /* release variable for the reader. */
+		      SCIP_CALL( SCIPreleaseVar(scip, &var) );
+		}
+
+	}
+
+	// ############################################################################################################################
+	// a_pos(w), a_neg(w), a_max Variablen
+	// ############################################################################################################################
+	// a_pos(w)
+	for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+	{
+		  SCIP_VAR* var;
+
+		  stringstream varname;
+
+		  // the variable is named after the two nodes connected by the edge it represents
+		  varname << "a_pos_" << wk_it;
+		  SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, SCIPinfinity(scip), 0.0, SCIP_VARTYPE_CONTINUOUS,
+				  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
+
+		  /* add variable to SCIP */
+		  SCIP_CALL( SCIPaddVar(scip, var) );
+
+		  // add var to graph
+		  graph->a_pos_var_v[wk_it] = var;
+		  SCIP_CALL( SCIPcaptureVar(scip, graph->a_pos_var_v[wk_it]) );
+
+		  /* release variable for the reader. */
+		  SCIP_CALL( SCIPreleaseVar(scip, &var) );
+	}
+
+	// a_neg(w)
+	for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+	{
+		  SCIP_VAR* var;
+
+		  stringstream varname;
+
+		  // the variable is named after the two nodes connected by the edge it represents
+		  varname << "a_neg_" << wk_it;
+		  SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, SCIPinfinity(scip), 0.0, SCIP_VARTYPE_CONTINUOUS,
+				  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
+
+		  /* add variable to SCIP */
+		  SCIP_CALL( SCIPaddVar(scip, var) );
+
+		  // add var to graph
+		  graph->a_neg_var_v[wk_it] = var;
+		  SCIP_CALL( SCIPcaptureVar(scip, graph->a_neg_var_v[wk_it]) );
+
+		  /* release variable for the reader. */
+		  SCIP_CALL( SCIPreleaseVar(scip, &var) );
+	}
+
+	// a_max
+	SCIP_VAR* var;
+
+	stringstream varname;
+
+	// the variable
+	// TODO: Zielfunktionskoeffizient
+	varname << "a_max";
+	SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 0.5, 5.0, SCIP_VARTYPE_CONTINUOUS,
+		  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
+
+	/* add variable to SCIP */
+	SCIP_CALL( SCIPaddVar(scip, var) );
+
+	// add var to graph
+	graph->a_max_var = var;
+	SCIP_CALL( SCIPcaptureVar(scip, graph->a_max_var) );
+
+	/* release variable for the reader. */
+	SCIP_CALL( SCIPreleaseVar(scip, &var) );
+
+
+	// ############################################################################################################################
+	// # x(i,j,w) <= y(i,w) Constraint
+	// # <=> -inf <= x(i,j,w) - y(i,w) <= 0
+	// #
+	// # x(i,j,w) <= y(j,w) Constraint
+	// # <=> -inf <= x(i,j,w) - y(j,w) <= 0
+	// ############################################################################################################################
+	SCIP_VAR** xleqyvars;
+	SCIP_CALL( SCIPallocBufferArray(scip, &xleqyvars, 2) );
+
+	SCIP_Real* xleqyvals;
+	SCIP_CALL( SCIPallocBufferArray(scip, &xleqyvals, 2) );
+	xleqyvals[0] = 1;
+	xleqyvals[1] = -1;
+
+	for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it )
+	{
+		for (  int e_it = 0 ; e_it < graph->nedges ; ++e_it)
+		{
+
+			SCIP_Cons* cons;
+			stringstream name;
+
+			// x(i,i,w) <= y(i,w)
+			name << "x_leq_y_i_" << graph->edges[e_it].back->adjac->stadtid << "_"
+							   << graph->edges[e_it].adjac->stadtid << "__"
+							   << graph->edges[e_it].back->adjac->stadtid << "__"
+							   << wk_it;
+
+			xleqyvars[0] = graph->edges[e_it].var_v[wk_it];
+			xleqyvars[1] = graph->nodes[ graph->edges[e_it].back->adjac->id ].var_v[wk_it];
+
+			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+					name.str().c_str(),
+					2, xleqyvars, xleqyvals,
+					-SCIPinfinity(scip), 0,
+					TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+			SCIP_CALL( SCIPaddCons(scip, cons) );
+			SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+
+			name.str("");
+
+			// x(i,j,w) <= y(j,w)
+			name << "x_leq_y_j_" << graph->edges[e_it].back->adjac->stadtid << "_"
+							   << graph->edges[e_it].adjac->stadtid << "__"
+							   << graph->edges[e_it].adjac->stadtid << "__"
+							   << wk_it;
+
+			xleqyvars[0] = graph->edges[e_it].var_v[wk_it];
+			xleqyvars[1] = graph->nodes[ graph->edges[e_it].adjac->id ].var_v[wk_it];
+
+			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+					name.str().c_str(),
+					2, xleqyvars, xleqyvals,
+					-SCIPinfinity(scip), 0,
+					TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+			SCIP_CALL( SCIPaddCons(scip, cons) );
+			SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+
+			name.str("");
+		}
+
+
+	}
+
+	SCIPfreeBufferArray(scip, &xleqyvars);
+	SCIPfreeBufferArray(scip, &xleqyvals);
+
+
+	// ############################################################################################################################
+	// # sum(w, y(i,w)) = 1 für alle i Constraint
+	// # <=> 1 <= sum(w,y(i,w)) <= 1
+	// ############################################################################################################################
+	SCIP_VAR** vars;
+	SCIP_CALL( SCIPallocBufferArray(scip, &vars, graph->nwahlkreise) );
+
+	SCIP_Real* vals;
+	SCIP_CALL( SCIPallocBufferArray(scip, &vals, graph->nwahlkreise) );
+	for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+		vals[wk_it] = 1;
+
+	for (int n_it = 0 ; n_it < graph->nnodes ; ++n_it)
+	{
+		SCIP_Cons* cons;
+		stringstream name;
+
+		name << "Stadt_in_1_Wk_" << graph->nodes[n_it].stadtid;
+
+		for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+			vars[wk_it] = graph->nodes[ n_it ].var_v[wk_it];
+
+		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+				name.str().c_str(),
+				graph->nwahlkreise, vars, vals,
+				1.0, 1.0,
+				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+		SCIP_CALL( SCIPaddCons(scip, cons) );
+		SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+		name.str("");
+
+	}
+	SCIPfreeBufferArray(scip, &vars);
+	SCIPfreeBufferArray(scip, &vals);
+
+	//TODO: ?-Constraint ?
+
+
+	// ############################################################################################################################
+	// # sum(i, y(i,w)) - 1 = sum(i,j,x(i,j,w)) für alle w Constraint
+	// # <=> 1 <= sum(i, y(i,w)) - sum(i,j,x(i,j,w)) <= 1
+	// ############################################################################################################################
+	SCIP_CALL( SCIPallocBufferArray(scip, &vars, graph->nnodes + graph->nedges) );
+
+	SCIP_CALL( SCIPallocBufferArray(scip, &vals, graph->nnodes + graph->nedges) );
+	for ( int it = 0 ; it < graph->nnodes ; ++it)
+		vals[it] = 1;
+	for ( int it = graph->nnodes ; it < graph->nnodes + graph->nedges ; ++it)
+		vals[it] = -1;
+
+	for (int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+	{
+		SCIP_Cons* cons;
+		stringstream name;
+
+		name << "Baum_Cons_" << wk_it;
+
+		for ( int it = 0 ; it < graph->nnodes ; ++it)
+			vars[it] = graph->nodes[it].var_v[wk_it];
+		for ( int it = 0 ; it < graph->nedges ; ++it)
+			vars[it + graph->nnodes] = graph->edges[it].var_v[wk_it];
+
+		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+				name.str().c_str(),
+				graph->nnodes + graph->nedges, vars, vals,
+				1.0, 1.0,
+				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+		SCIP_CALL( SCIPaddCons(scip, cons) );
+		SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+		name.str("");
+	}
+
+	SCIPfreeBufferArray(scip, &vars);
+	SCIPfreeBufferArray(scip, &vals);
+
+
+	// ############################################################################################################################
+	// # sum(i, y(i,w) * pop(i)) - avg = a_pos(w) * avg - a_neg(w) * avg  für alle w Constraint
+	// # <=> avg <= sum(i, y(i,w) * avg) - a_pos(w) * avg + a_neg(w) * avg <= avg
+	// ############################################################################################################################
+
+	SCIP_CALL( SCIPallocBufferArray(scip, &vars, graph->nnodes + 2) );
+
+	SCIP_CALL( SCIPallocBufferArray(scip, &vals, graph->nnodes + 2) );
+	for ( int it = 0 ; it < graph->nnodes ; ++it)
+		vals[it] = graph->nodes[it].bewohner;
+	vals[graph->nnodes] = -avg;
+	vals[graph->nnodes+1] = avg;
+
+	for (int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+	{
+		SCIP_Cons* cons;
+		stringstream name;
+
+		name << "Gerechtigkeit_" << wk_it;
+
+		for ( int it = 0 ; it < graph->nnodes ; ++it)
+			vars[it] = graph->nodes[it].var_v[wk_it];
+		vars[graph->nnodes] = graph->a_pos_var_v[wk_it];
+		vars[graph->nnodes+1] = graph->a_neg_var_v[wk_it];
+
+		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+				name.str().c_str(),
+				graph->nnodes + 2, vars, vals,
+				avg, avg,
+				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+		SCIP_CALL( SCIPaddCons(scip, cons) );
+		SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+		name.str("");
+	}
+
+	SCIPfreeBufferArray(scip, &vars);
+	SCIPfreeBufferArray(scip, &vals);
+
+	// ############################################################################################################################
+	// # a_pos(w) + a_neg(w) <= a_max  für alle w Constraint
+	// # <=> -inf <= a_pos(w) + a_neg(w) - a_max <= 0
+	// ############################################################################################################################
+
+	SCIP_CALL( SCIPallocBufferArray(scip, &vars, 3) );
+
+	SCIP_CALL( SCIPallocBufferArray(scip, &vals, 3) );
+	vals[0] = 1;
+	vals[1] = 1;
+	vals[2] = -1;
+
+	for (int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+	{
+		SCIP_Cons* cons;
+		stringstream name;
+
+		name << "Verbindung_a_vars_" << wk_it;
+
+		vars[0] = graph->a_pos_var_v[wk_it];
+		vars[1] = graph->a_neg_var_v[wk_it];;
+		vars[2] = graph->a_max_var;
+
+		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+				name.str().c_str(),
+				3, vars, vals,
+				- SCIPinfinity(scip), 0,
+				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+		SCIP_CALL( SCIPaddCons(scip, cons) );
+		SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+		name.str("");
+	}
+
+	SCIPfreeBufferArray(scip, &vars);
+	SCIPfreeBufferArray(scip, &vals);
+
+
+
+
 
 
 	// BEGIN: Problem aufstellen  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	SCIPdebugMessage("betrete setup\n");
-
-	#ifdef SCIP_DEBUG
-	FILE* file = fopen("debug.txt", "w");
-	#endif
-
-	//std::cout << "### vor SCIPcreateProbBasic" << std::endl;
-	/* create empty problem */
-	//SCIP_CALL( SCIPcreateProbBasic(scip, "WP-ProbData") );
-	//std::cout << "### nach SCIPcreateProbBasic" << std::endl;
-
-
-	// TODO : avg sollte Ganzzahlig sein? !
-	double avg = ReaderWP::getavg(graph,graph->nwahlkreise);
-
-//	std::cout << graph->nodes[0].stadtid << " po: "<< graph->nodes[0].bewohner << std::endl;
+//	SCIPdebugMessage("betrete setup\n");
 //
-//	std::cout << (graph->nodes[0].stadtid) << " po: "<< graph->nodes[0].bewohner << std::endl;
+//	#ifdef SCIP_DEBUG
+//	FILE* file = fopen("debug.txt", "w");
+//	#endif
 //
-//	stringstream name;
-//	name << "y_" << graph->nodes[0].stadtid << "_" << 12 ;
-//	std::cout << name.str() << std::endl;
-
-
-	std::cout << "avg: " << avg << std::endl;
-
-	SCIP_VAR* newvar;
-	SCIP_CONS* cons;
-
-	SCIP_VAR* apos;
-	SCIP_VAR* aneg;
-
-	SCIP_VAR** yvars;
-	SCIP_CALL( SCIPallocBufferArray(scip, &yvars, graph->nnodes * nwahlkreise) );
-	vector<SCIP_VAR*> ywahlkreisvars;
-
-	SCIP_VAR** acons;
-	SCIP_CALL( SCIPallocBufferArray(scip, &acons, 3) );
-	SCIP_Real* aconsvals;
-	SCIP_CALL( SCIPallocBufferArray(scip, &aconsvals, 3) );
-	aconsvals[0] = -1;
-	aconsvals[1] = 1;
-	aconsvals[2] = 1;
-
-	SCIP_Real* population;
-	SCIP_CALL( SCIPallocBufferArray(scip, &population, graph->nnodes + 2) );
-
-	SCIP_VAR** tmpvars; // für ausgeglichenheits-cons.
-	SCIP_CALL( SCIPallocBufferArray(scip, &tmpvars, graph->nnodes + 2 ) );
-
-	SCIP_VAR** xleqycons;
-	SCIP_CALL( SCIPallocBufferArray(scip, &xleqycons, 2) );
-
-	SCIP_Real* xleqyvals;
-	SCIP_CALL( SCIPallocBufferArray(scip, &xleqyvals, 2) );
-
-	SCIP_Real* baumvals;
-	SCIP_CALL( SCIPallocBufferArray(scip, &baumvals, graph->nedges + graph->nnodes) );
-
-	SCIP_VAR** ex1wkvars;
-	SCIP_Real* ex1wkvals;
-	SCIP_CALL( SCIPallocBufferArray(scip, &ex1wkvars, graph->nwahlkreise) );
-	SCIP_CALL( SCIPallocBufferArray(scip, &ex1wkvals, graph->nwahlkreise) );
-
-	SCIP_Real* questionvals;
-	SCIP_CALL( SCIPallocBufferArray(scip, &questionvals, graph->nedges * 2 * graph->nwahlkreise) );
-
-	SCIP_VAR** questionvars;
-	SCIP_CALL( SCIPallocBufferArray(scip, &questionvars, graph->nedges * 2 * graph->nwahlkreise) );
-
-	vector< vector<SCIP_VAR*> >xvars;		/** xvariablen pro stadt */
-	xvars.resize(graph->nnodes);
-
-
-	std::cout << "### BEGIN Problem aufstellen" << std::endl;
-
-	// VAR: a_max >=0 ####################################
-	// TODO: Zielfunktionskoeffizient!
-	// TODO: 0.15 variable halten, evtl in .gido einlesen.
-	SCIP_CALL( SCIPcreateVarBasic(scip, &newvar, "a_max",  0, 0.5 , 5.0, SCIP_VARTYPE_CONTINUOUS) );
-#ifdef SCIP_DEBUG
-	SCIPdebugPrintf("Amax \n");
-	SCIPprintVar(scip, newvar, file);
-#endif
-	SCIP_CALL( SCIPaddVar(scip, newvar) );
-	acons[0] = newvar;
-
-
-	for(int aktwk = 0; aktwk < graph->nwahlkreise; aktwk++)
-	{
-		SCIP_CALL( SCIPcreateVarBasic(scip, &newvar, ("a_pos"+convertinttostring(aktwk)).c_str(), 0, SCIPinfinity(scip),
-				0.0, SCIP_VARTYPE_CONTINUOUS) );
-#ifdef SCIP_DEBUG
-		SCIPdebugMessage(" a_pos(%d) \n", aktwk);
-		SCIPprintVar(scip, newvar, file);
-#endif
-		SCIP_CALL( SCIPaddVar(scip, newvar) );
-		acons[1] = newvar;
-		apos = newvar;
-
-		/* a_neg(aktwk) */
-		SCIP_CALL( SCIPcreateVarBasic(scip, &newvar, ("a_neg"+convertinttostring(aktwk)).c_str(), 0, SCIPinfinity(scip),
-				0.0, SCIP_VARTYPE_CONTINUOUS) );
-#ifdef SCIP_DEBUG
-		SCIPdebugMessage(" a_neg(%d) \n", aktwk);
-		SCIPprintVar(scip, newvar, file);
-#endif
-		SCIP_CALL( SCIPaddVar(scip, newvar) );
-		acons[2] = newvar;
-		aneg = newvar;
-
-		/* a_max >= a_pos + a_neg <=> a_pos + a_neg - a_max <= 0*/
-		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-				("a_pos_+_a_neg_<_=_a_max_("+ convertinttostring(aktwk) +")").c_str(),
-				3, acons, aconsvals, -SCIPinfinity(scip), 0,
-				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-		SCIP_CALL( SCIPaddCons(scip, cons) );
-
-		for( unsigned int i = 0 ; i < graph->nnodes ; ++i )
-		{
-			// VAR: y(i,w) #########################################
-			/* Stadt i in Wahlkreis aktwk */
-
-			stringstream name;
-			name << "y_" << graph->nodes[i].stadtid << "_" << aktwk ;
-
-			SCIP_CALL( SCIPcreateVarBasic(scip, &newvar,
-					(name).str().c_str(),
-					0, 1, 0.0, SCIP_VARTYPE_BINARY) );
-			name.str("");
-
-#ifdef SCIP_DEBUG
-			cout << "erzeuge y Variable für" << endl;
-			SCIPdebugMessage(("y_" + graph->nodes[i].stadtid + "_" +  convertinttostring(aktwk)+"\n").c_str(), aktwk);
-			SCIPprintVar(scip, newvar, file);
-#endif
-
-			SCIP_CALL( SCIPaddVar(scip, newvar) );
-
-			/* store the pointer */
-			yvars[aktwk + i * graph->nwahlkreise] = newvar;
-			ywahlkreisvars.push_back(newvar);
-			population[i] = graph->nodes[i].bewohner;
-		}
-
-		// CONS: Ausgeglichenheitscons ########################################
-		population[graph->nnodes    ] = - avg;
-		population[graph->nnodes + 1] = + avg;
-
-		for(unsigned int it = 0; it < graph->nnodes ; it++)
-		{
-			tmpvars[it] = ywahlkreisvars.at(it);
-		}
-		tmpvars[graph->nnodes] = apos;
-		tmpvars[graph->nnodes+1] = aneg;
-
-#ifdef SCIP_DEBUG
-		for(unsigned int it = 0; it < graph->nnodes + 2; it++)
-		{
-			SCIPprintVar(scip, tmpvars[aktwk], file);
-		}
-#endif
-
-		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-				("ausgeglichenheit("+ convertinttostring(aktwk) +")").c_str(),
-				graph->nnodes + 2, tmpvars, population, avg, avg ,
-				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-		SCIP_CALL( SCIPaddCons(scip, cons) );
-
-		// for schleife über die Kanten
-		for( unsigned int it2 = 0 ; it2 < graph->nedges ; ++it2 )
-		{
-
-			std::cout << "Startkoten: " << graph->edges[it2].back->adjac->stadtid << std::endl;
-			std::cout << "Targetkoten: " << graph->edges[it2].adjac->stadtid << std::endl;
-
-
-			// VAR: x(i,j,w) ###################################
-			/* Erstellen der x vars: sind it1 und it2 im selben Wahlkreis und benachbart? */
-			// TODO Zielfunktionskoeffizient
-
-			stringstream name;
-			name << "x_" << graph->edges[it2].adjac->stadtid << "_" << graph->edges[it2].back->adjac->stadtid << "_" << aktwk ;
-
-			SCIP_CALL( SCIPcreateVarBasic(scip, &newvar,
-					(name.str()).c_str(),
-					0, 1, 0.0, SCIP_VARTYPE_BINARY) );
-			name.str("");
-			SCIP_CALL( SCIPaddVar(scip, newvar) );
-
-			SCIP_CALL ( addVarToEdges(scip, &graph->edges[it2], newvar, aktwk) );
-
-			//SCIP_CALL( addVarToEdges(scip, edge, var) );
-
-			/* Vorbereitung auf ? Constraints */
-			xvars.at(idtoid(graph, graph->edges[it2].adjac->stadtid )).push_back(newvar);
-			xvars.at(idtoid(graph, graph->edges[it2].back->adjac->stadtid )).push_back(newvar);
-
-			// für Baum-Bedingung: x Var hinten an den Vektor hängen
-			ywahlkreisvars.push_back(newvar);
-
-			/* CONS: x(numstadt, j, aktwk) <= y(numstadt, aktwk) ############################# */
-			for(unsigned int numstadt2 = 0; numstadt2 < graph->nnodes; numstadt2++)
-				if(graph->nodes[numstadt2].stadtid == graph->edges[it2].adjac->stadtid )
-					xleqycons[1] = yvars[aktwk + numstadt2 * nwahlkreise];
-
-			xleqycons[0] = newvar;
-
-			xleqyvals[0] = 1; // x(i,j,w)
-			xleqyvals[1] = -1; // y(i,w)
-
-			// TODO
-			//stringstream name;
-			//name << "x_" << graph->edges[it2].adjac->stadtid <<"_"<< graph->edges[it2].back->adjac->stadtid << "_" <<aktwk << " <= y" + convertinttostring(graph->edges[it2].adjac->stadtid)+ "_" +  convertinttostring(aktwk) ;
-
-			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-					("x_" + convertinttostring(graph->edges[it2].adjac->stadtid) + convertinttostring(graph->edges[it2].back->adjac->stadtid) + "_" +  convertinttostring(aktwk) + " <= y" + convertinttostring(graph->edges[it2].adjac->stadtid)+ "_" +  convertinttostring(aktwk) ).c_str(),
-					2, xleqycons, xleqyvals, -SCIPinfinity(scip), 0,
-					TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-			SCIP_CALL( SCIPaddCons(scip, cons) );
-
-			/* CONS: x(i, numstadt, aktwk) <= y(numstadt, aktwk) ##################### */
-			for(unsigned int numstadt2 = 0; numstadt2 < graph->nnodes; numstadt2++)
-				if(graph->nodes[numstadt2].stadtid ==  graph->edges[it2].back->adjac->stadtid)
-					xleqycons[1] = yvars[aktwk + numstadt2 * nwahlkreise];
-
-			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-					("x_" + convertinttostring(graph->edges[it2].adjac->stadtid) +"_"+ convertinttostring(graph->edges[it2].back->adjac->stadtid) + "_" +  convertinttostring(aktwk) + " <= y" + convertinttostring(graph->edges[it2].back->adjac->stadtid) + "_" +  convertinttostring(aktwk) ).c_str(),
-						2, xleqycons, xleqyvals, -SCIPinfinity(scip), 0,
-						TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-			SCIP_CALL( SCIPaddCons(scip, cons) );
-
-		}
-
-		/* erstellen der |V| -1 = |E| Constraints */
-		for(unsigned int j = 0; j < graph->nnodes; j++)
-			baumvals[j] = 1;
-		for(unsigned int j = graph->nnodes; j < graph->nnodes + graph->nedges; j++)
-			baumvals[j] = -1;
-
-		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-				("Baum Wahlkreis " + convertinttostring(aktwk)).c_str(),
-				ywahlkreisvars.size(), &ywahlkreisvars[0], baumvals, 1, 1,
-				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-		SCIP_CALL( SCIPaddCons(scip, cons) );
-
-		ywahlkreisvars.clear();
-
-	}
-
-	std::cout << "### VAR2" << std::endl;
-
-
-	/* Town appears in exact one Constituency */
-	int numstadt = 0;
-	for( unsigned int it = 0 ; it < graph->nnodes ; ++it )
-	{
-		for(int aktwk = 0; aktwk < graph->nwahlkreise; aktwk++)
-		{
-			ex1wkvars[aktwk] = yvars[aktwk + numstadt * nwahlkreise];
-			ex1wkvals[aktwk] = 1;
-		}
-
-		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-				("Stadt " + convertinttostring(graph->nodes[it].stadtid) + "hatWK").c_str(),
-				graph->nwahlkreise, ex1wkvars, ex1wkvals, 1, 1, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-		SCIP_CALL( SCIPaddCons(scip, cons) );
-		numstadt++;
-	}
-
-
-
-	for (int l = 0 ; l < graph->nnodes ; ++l) {
-		std::cout << "stadtid: " << graph->nodes[l].stadtid << " groesse von xvars.at(i)" << xvars.at(l).size() << std::endl;
-	}
-
-	for (int l = 0 ; l < xvars.at(0).size(); ++l) {
-		std::cout << "varname: " << SCIPvarGetName(xvars.at(0).at(l)) << std::endl;
-	}
-
-
-	/* Questionmark Constraints */
-	unsigned int count_grad;
-	for( unsigned int i = 0 ; i < graph->nnodes ; i++ )
-	{
-
-
-
-//		count_grad = 0;
-//		GRAPHEDGE* it_edge = graph->nodes[i].first_edge;
-//		int first_id = it_edge->adjac->id;
-
-//		do
+//	//std::cout << "### vor SCIPcreateProbBasic" << std::endl;
+//	/* create empty problem */
+//	//SCIP_CALL( SCIPcreateProbBasic(scip, "WP-ProbData") );
+//	//std::cout << "### nach SCIPcreateProbBasic" << std::endl;
+//
+//
+//	// TODO : avg sollte Ganzzahlig sein? !
+//	double avg = ReaderWP::getavg(graph,graph->nwahlkreise);
+//
+////	std::cout << graph->nodes[0].stadtid << " po: "<< graph->nodes[0].bewohner << std::endl;
+////
+////	std::cout << (graph->nodes[0].stadtid) << " po: "<< graph->nodes[0].bewohner << std::endl;
+////
+////	stringstream name;
+////	name << "y_" << graph->nodes[0].stadtid << "_" << 12 ;
+////	std::cout << name.str() << std::endl;
+//
+//
+//	std::cout << "avg: " << avg << std::endl;
+//
+//	SCIP_VAR* newvar;
+//	SCIP_CONS* cons;
+//
+//	SCIP_VAR* apos;
+//	SCIP_VAR* aneg;
+//
+//	SCIP_VAR** yvars;
+//	SCIP_CALL( SCIPallocBufferArray(scip, &yvars, graph->nnodes * nwahlkreise) );
+//	vector<SCIP_VAR*> ywahlkreisvars;
+//
+//	SCIP_VAR** acons;
+//	SCIP_CALL( SCIPallocBufferArray(scip, &acons, 3) );
+//	SCIP_Real* aconsvals;
+//	SCIP_CALL( SCIPallocBufferArray(scip, &aconsvals, 3) );
+//	aconsvals[0] = -1;
+//	aconsvals[1] = 1;
+//	aconsvals[2] = 1;
+//
+//	SCIP_Real* population;
+//	SCIP_CALL( SCIPallocBufferArray(scip, &population, graph->nnodes + 2) );
+//
+//	SCIP_VAR** tmpvars; // für ausgeglichenheits-cons.
+//	SCIP_CALL( SCIPallocBufferArray(scip, &tmpvars, graph->nnodes + 2 ) );
+//
+//	SCIP_VAR** xleqycons;
+//	SCIP_CALL( SCIPallocBufferArray(scip, &xleqycons, 2) );
+//
+//	SCIP_Real* xleqyvals;
+//	SCIP_CALL( SCIPallocBufferArray(scip, &xleqyvals, 2) );
+//
+//	SCIP_Real* baumvals;
+//	SCIP_CALL( SCIPallocBufferArray(scip, &baumvals, graph->nedges + graph->nnodes) );
+//
+//	SCIP_VAR** ex1wkvars;
+//	SCIP_Real* ex1wkvals;
+//	SCIP_CALL( SCIPallocBufferArray(scip, &ex1wkvars, graph->nwahlkreise) );
+//	SCIP_CALL( SCIPallocBufferArray(scip, &ex1wkvals, graph->nwahlkreise) );
+//
+//	SCIP_Real* questionvals;
+//	SCIP_CALL( SCIPallocBufferArray(scip, &questionvals, graph->nedges * 2 * graph->nwahlkreise) );
+//
+//	SCIP_VAR** questionvars;
+//	SCIP_CALL( SCIPallocBufferArray(scip, &questionvars, graph->nedges * 2 * graph->nwahlkreise) );
+//
+//	vector< vector<SCIP_VAR*> >xvars;		/** xvariablen pro stadt */
+//	xvars.resize(graph->nnodes);
+//
+//
+//	std::cout << "### BEGIN Problem aufstellen" << std::endl;
+//
+//	// VAR: a_max >=0 ####################################
+//	// TODO: Zielfunktionskoeffizient!
+//	// TODO: 0.15 variable halten, evtl in .gido einlesen.
+//	SCIP_CALL( SCIPcreateVarBasic(scip, &newvar, "a_max",  0, 0.5 , 5.0, SCIP_VARTYPE_CONTINUOUS) );
+//#ifdef SCIP_DEBUG
+//	SCIPdebugPrintf("Amax \n");
+//	SCIPprintVar(scip, newvar, file);
+//#endif
+//	SCIP_CALL( SCIPaddVar(scip, newvar) );
+//	acons[0] = newvar;
+//
+//
+//	for(int aktwk = 0; aktwk < graph->nwahlkreise; aktwk++)
+//	{
+//		SCIP_CALL( SCIPcreateVarBasic(scip, &newvar, ("a_pos"+convertinttostring(aktwk)).c_str(), 0, SCIPinfinity(scip),
+//				0.0, SCIP_VARTYPE_CONTINUOUS) );
+//#ifdef SCIP_DEBUG
+//		SCIPdebugMessage(" a_pos(%d) \n", aktwk);
+//		SCIPprintVar(scip, newvar, file);
+//#endif
+//		SCIP_CALL( SCIPaddVar(scip, newvar) );
+//		acons[1] = newvar;
+//		apos = newvar;
+//
+//		/* a_neg(aktwk) */
+//		SCIP_CALL( SCIPcreateVarBasic(scip, &newvar, ("a_neg"+convertinttostring(aktwk)).c_str(), 0, SCIPinfinity(scip),
+//				0.0, SCIP_VARTYPE_CONTINUOUS) );
+//#ifdef SCIP_DEBUG
+//		SCIPdebugMessage(" a_neg(%d) \n", aktwk);
+//		SCIPprintVar(scip, newvar, file);
+//#endif
+//		SCIP_CALL( SCIPaddVar(scip, newvar) );
+//		acons[2] = newvar;
+//		aneg = newvar;
+//
+//		/* a_max >= a_pos + a_neg <=> a_pos + a_neg - a_max <= 0*/
+//		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+//				("a_pos_+_a_neg_<_=_a_max_("+ convertinttostring(aktwk) +")").c_str(),
+//				3, acons, aconsvals, -SCIPinfinity(scip), 0,
+//				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+//		SCIP_CALL( SCIPaddCons(scip, cons) );
+//
+//		for( unsigned int i = 0 ; i < graph->nnodes ; ++i )
 //		{
-//			std::cout << it_edge->adjac->id << std::endl;
-//			count_grad +=1;
-//			it_edge = it_edge->next;
-//		} while( first_id != it_edge->adjac->id );
-
-		std::cout << " ### OUT 1 " << std::endl;
-
-		std::cout << "count_grad: " << xvars.at(i).size()/graph->nwahlkreise << std::endl;
-
-		for (int l = 0 ; l < graph->nnodes ; ++l) {
-			std::cout << "stadtid: " << graph->nodes[l].stadtid << " groesse von xvars.at(i)" << xvars.at(l).size() << std::endl;
-		}
-
-		for ( unsigned int j = 0 ; j < xvars.at(i).size() ; j++)
-		{
-			std::cout << "j: " << j << std::endl;
-			questionvals[j] = 1;
-			std::cout << "nach vals" <<  std::endl;
-
-			questionvars[j] = xvars.at(i).at(j);
-			std::cout << "nach vars" <<  std::endl;
-		}
-
-		std::cout << " ### OUT 2 " << std::endl;
-
-		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-				(convertinttostring( graph->nodes[i].stadtid) + "?-cons").c_str(), xvars.at(i).size(),
-				questionvars, questionvals, 1, SCIPinfinity(scip),
-				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE) );
-		SCIP_CALL( SCIPaddCons(scip, cons) );
-	}
-	std::cout << "### VAR4" << std::endl;
-
-
-
-	// add variables to problem and link them for parallel halfedges
-	//TODO
-	//nutze bei den Kanten-Vars:  SCIP_CALL( addVarToEdges(scip, edge, var) );
-
-
-
-
-	/* last, we need a constraint forbidding "subtrees" */
-	//SCIP_CALL( SCIPcreateConsSubtree(scip, &cons, "subtree", graph,
-	//         FALSE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, TRUE ) );
-	//SCIP_CALL( SCIPaddCons(scip, cons) );
-	//SCIP_CALL( SCIPreleaseCons(scip, &cons) );
-
-
-	SCIPdebugMessage("Last steps\n");
-	/* release variables */
-	// TODO: Release all Vars?!
-	// TODO: Release all Cons?!
-	SCIP_CALL( SCIPreleaseVar(scip, &newvar) );
+//			// VAR: y(i,w) #########################################
+//			/* Stadt i in Wahlkreis aktwk */
 //
-//	/* free memory */
-	SCIPfreeBufferArray(scip, &yvars);
-	SCIPfreeBufferArray(scip, &acons);
-	SCIPfreeBufferArray(scip, &xleqycons);
-	SCIPfreeBufferArray(scip, &questionvars);
-	SCIPfreeBufferArray(scip, &ex1wkvars);
-	SCIPfreeBufferArray(scip, &questionvals);
-	SCIPfreeBufferArray(scip, &baumvals);
-	SCIPfreeBufferArray(scip, &xleqyvals);
-	SCIPfreeBufferArray(scip, &ex1wkvals);
-	SCIPfreeBufferArray(scip, &aconsvals);
-	SCIPfreeBufferArray(scip, &population);
-	SCIPfreeBufferArray(scip, tmpvars);
+//			stringstream name;
+//			name << "y_" << graph->nodes[i].stadtid << "_" << aktwk ;
+//
+//			SCIP_CALL( SCIPcreateVarBasic(scip, &newvar,
+//					(name).str().c_str(),
+//					0, 1, 0.0, SCIP_VARTYPE_BINARY) );
+//			name.str("");
+//
+//#ifdef SCIP_DEBUG
+//			cout << "erzeuge y Variable für" << endl;
+//			SCIPdebugMessage(("y_" + graph->nodes[i].stadtid + "_" +  convertinttostring(aktwk)+"\n").c_str(), aktwk);
+//			SCIPprintVar(scip, newvar, file);
+//#endif
+//
+//			SCIP_CALL( SCIPaddVar(scip, newvar) );
+//
+//			/* store the pointer */
+//			yvars[aktwk + i * graph->nwahlkreise] = newvar;
+//			ywahlkreisvars.push_back(newvar);
+//			population[i] = graph->nodes[i].bewohner;
+//		}
+//
+//		// CONS: Ausgeglichenheitscons ########################################
+//		population[graph->nnodes    ] = - avg;
+//		population[graph->nnodes + 1] = + avg;
+//
+//		for(unsigned int it = 0; it < graph->nnodes ; it++)
+//		{
+//			tmpvars[it] = ywahlkreisvars.at(it);
+//		}
+//		tmpvars[graph->nnodes] = apos;
+//		tmpvars[graph->nnodes+1] = aneg;
+//
+//#ifdef SCIP_DEBUG
+//		for(unsigned int it = 0; it < graph->nnodes + 2; it++)
+//		{
+//			SCIPprintVar(scip, tmpvars[aktwk], file);
+//		}
+//#endif
+//
+//		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+//				("ausgeglichenheit("+ convertinttostring(aktwk) +")").c_str(),
+//				graph->nnodes + 2, tmpvars, population, avg, avg ,
+//				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+//		SCIP_CALL( SCIPaddCons(scip, cons) );
+//
+//		// for schleife über die Kanten
+//		for( unsigned int it2 = 0 ; it2 < graph->nedges ; ++it2 )
+//		{
+//
+//			std::cout << "Startkoten: " << graph->edges[it2].back->adjac->stadtid << std::endl;
+//			std::cout << "Targetkoten: " << graph->edges[it2].adjac->stadtid << std::endl;
+//
+//
+//			// VAR: x(i,j,w) ###################################
+//			/* Erstellen der x vars: sind it1 und it2 im selben Wahlkreis und benachbart? */
+//			// TODO Zielfunktionskoeffizient
+//
+//			stringstream name;
+//			name << "x_" << graph->edges[it2].adjac->stadtid << "_" << graph->edges[it2].back->adjac->stadtid << "_" << aktwk ;
+//
+//			SCIP_CALL( SCIPcreateVarBasic(scip, &newvar,
+//					(name.str()).c_str(),
+//					0, 1, 0.0, SCIP_VARTYPE_BINARY) );
+//			name.str("");
+//			SCIP_CALL( SCIPaddVar(scip, newvar) );
+//
+//			SCIP_CALL ( addVarToEdges(scip, &graph->edges[it2], newvar, aktwk) );
+//
+//			//SCIP_CALL( addVarToEdges(scip, edge, var) );
+//
+//			/* Vorbereitung auf ? Constraints */
+//			xvars.at(idtoid(graph, graph->edges[it2].adjac->stadtid )).push_back(newvar);
+//			xvars.at(idtoid(graph, graph->edges[it2].back->adjac->stadtid )).push_back(newvar);
+//
+//			// für Baum-Bedingung: x Var hinten an den Vektor hängen
+//			ywahlkreisvars.push_back(newvar);
+//
+//			/* CONS: x(numstadt, j, aktwk) <= y(numstadt, aktwk) ############################# */
+//			for(unsigned int numstadt2 = 0; numstadt2 < graph->nnodes; numstadt2++)
+//				if(graph->nodes[numstadt2].stadtid == graph->edges[it2].adjac->stadtid )
+//					xleqycons[1] = yvars[aktwk + numstadt2 * nwahlkreise];
+//
+//			xleqycons[0] = newvar;
+//
+//			xleqyvals[0] = 1; // x(i,j,w)
+//			xleqyvals[1] = -1; // y(i,w)
+//
+//			// TODO
+//			//stringstream name;
+//			//name << "x_" << graph->edges[it2].adjac->stadtid <<"_"<< graph->edges[it2].back->adjac->stadtid << "_" <<aktwk << " <= y" + convertinttostring(graph->edges[it2].adjac->stadtid)+ "_" +  convertinttostring(aktwk) ;
+//
+//			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+//					("x_" + convertinttostring(graph->edges[it2].adjac->stadtid) + convertinttostring(graph->edges[it2].back->adjac->stadtid) + "_" +  convertinttostring(aktwk) + " <= y" + convertinttostring(graph->edges[it2].adjac->stadtid)+ "_" +  convertinttostring(aktwk) ).c_str(),
+//					2, xleqycons, xleqyvals, -SCIPinfinity(scip), 0,
+//					TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+//			SCIP_CALL( SCIPaddCons(scip, cons) );
+//
+//			/* CONS: x(i, numstadt, aktwk) <= y(numstadt, aktwk) ##################### */
+//			for(unsigned int numstadt2 = 0; numstadt2 < graph->nnodes; numstadt2++)
+//				if(graph->nodes[numstadt2].stadtid ==  graph->edges[it2].back->adjac->stadtid)
+//					xleqycons[1] = yvars[aktwk + numstadt2 * nwahlkreise];
+//
+//			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+//					("x_" + convertinttostring(graph->edges[it2].adjac->stadtid) +"_"+ convertinttostring(graph->edges[it2].back->adjac->stadtid) + "_" +  convertinttostring(aktwk) + " <= y" + convertinttostring(graph->edges[it2].back->adjac->stadtid) + "_" +  convertinttostring(aktwk) ).c_str(),
+//						2, xleqycons, xleqyvals, -SCIPinfinity(scip), 0,
+//						TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+//			SCIP_CALL( SCIPaddCons(scip, cons) );
+//
+//		}
+//
+//		/* erstellen der |V| -1 = |E| Constraints */
+//		for(unsigned int j = 0; j < graph->nnodes; j++)
+//			baumvals[j] = 1;
+//		for(unsigned int j = graph->nnodes; j < graph->nnodes + graph->nedges; j++)
+//			baumvals[j] = -1;
+//
+//		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+//				("Baum Wahlkreis " + convertinttostring(aktwk)).c_str(),
+//				ywahlkreisvars.size(), &ywahlkreisvars[0], baumvals, 1, 1,
+//				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+//		SCIP_CALL( SCIPaddCons(scip, cons) );
+//
+//		ywahlkreisvars.clear();
+//
+//	}
+//
+//	std::cout << "### VAR2" << std::endl;
+//
+//
+//	/* Town appears in exact one Constituency */
+//	int numstadt = 0;
+//	for( unsigned int it = 0 ; it < graph->nnodes ; ++it )
+//	{
+//		for(int aktwk = 0; aktwk < graph->nwahlkreise; aktwk++)
+//		{
+//			ex1wkvars[aktwk] = yvars[aktwk + numstadt * nwahlkreise];
+//			ex1wkvals[aktwk] = 1;
+//		}
+//
+//		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+//				("Stadt " + convertinttostring(graph->nodes[it].stadtid) + "hatWK").c_str(),
+//				graph->nwahlkreise, ex1wkvars, ex1wkvals, 1, 1, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+//		SCIP_CALL( SCIPaddCons(scip, cons) );
+//		numstadt++;
+//	}
+//
+//
+//
+//	for (int l = 0 ; l < graph->nnodes ; ++l) {
+//		std::cout << "stadtid: " << graph->nodes[l].stadtid << " groesse von xvars.at(i)" << xvars.at(l).size() << std::endl;
+//	}
+//
+//	for (int l = 0 ; l < xvars.at(0).size(); ++l) {
+//		std::cout << "varname: " << SCIPvarGetName(xvars.at(0).at(l)) << std::endl;
+//	}
+//
+//
+//	/* Questionmark Constraints */
+//	unsigned int count_grad;
+//	for( unsigned int i = 0 ; i < graph->nnodes ; i++ )
+//	{
+//
+//
+//
+////		count_grad = 0;
+////		GRAPHEDGE* it_edge = graph->nodes[i].first_edge;
+////		int first_id = it_edge->adjac->id;
+//
+////		do
+////		{
+////			std::cout << it_edge->adjac->id << std::endl;
+////			count_grad +=1;
+////			it_edge = it_edge->next;
+////		} while( first_id != it_edge->adjac->id );
+//
+//		std::cout << " ### OUT 1 " << std::endl;
+//
+//		std::cout << "count_grad: " << xvars.at(i).size()/graph->nwahlkreise << std::endl;
+//
+//		for (int l = 0 ; l < graph->nnodes ; ++l) {
+//			std::cout << "stadtid: " << graph->nodes[l].stadtid << " groesse von xvars.at(i)" << xvars.at(l).size() << std::endl;
+//		}
+//
+//		for ( unsigned int j = 0 ; j < xvars.at(i).size() ; j++)
+//		{
+//			std::cout << "j: " << j << std::endl;
+//			questionvals[j] = 1;
+//			std::cout << "nach vals" <<  std::endl;
+//
+//			questionvars[j] = xvars.at(i).at(j);
+//			std::cout << "nach vars" <<  std::endl;
+//		}
+//
+//		std::cout << " ### OUT 2 " << std::endl;
+//
+//		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+//				(convertinttostring( graph->nodes[i].stadtid) + "?-cons").c_str(), xvars.at(i).size(),
+//				questionvars, questionvals, 1, SCIPinfinity(scip),
+//				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE) );
+//		SCIP_CALL( SCIPaddCons(scip, cons) );
+//	}
+//	std::cout << "### VAR4" << std::endl;
+//
+//
+//
+//	// add variables to problem and link them for parallel halfedges
+//	//TODO
+//	//nutze bei den Kanten-Vars:  SCIP_CALL( addVarToEdges(scip, edge, var) );
+//
+//
+//
+//
+//	/* last, we need a constraint forbidding "subtrees" */
+//	//SCIP_CALL( SCIPcreateConsSubtree(scip, &cons, "subtree", graph,
+//	//         FALSE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, TRUE ) );
+//	//SCIP_CALL( SCIPaddCons(scip, cons) );
+//	//SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+//
+//
+//	SCIPdebugMessage("Last steps\n");
+//	/* release variables */
+//	// TODO: Release all Vars?!
+//	// TODO: Release all Cons?!
+//	SCIP_CALL( SCIPreleaseVar(scip, &newvar) );
+////
+////	/* free memory */
+//	SCIPfreeBufferArray(scip, &yvars);
+//	SCIPfreeBufferArray(scip, &acons);
+//	SCIPfreeBufferArray(scip, &xleqycons);
+//	SCIPfreeBufferArray(scip, &questionvars);
+//	SCIPfreeBufferArray(scip, &ex1wkvars);
+//	SCIPfreeBufferArray(scip, &questionvals);
+//	SCIPfreeBufferArray(scip, &baumvals);
+//	SCIPfreeBufferArray(scip, &xleqyvals);
+//	SCIPfreeBufferArray(scip, &ex1wkvals);
+//	SCIPfreeBufferArray(scip, &aconsvals);
+//	SCIPfreeBufferArray(scip, &population);
+//	SCIPfreeBufferArray(scip, tmpvars);
 
 	SCIPdebugMessage("verlasse Setup\n");
 

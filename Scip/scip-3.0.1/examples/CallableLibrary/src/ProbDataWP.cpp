@@ -59,57 +59,56 @@ SCIP_RETCODE copy_graph(
       node->y          = sourcenode->y;
       node->id         = sourcenode->id;
       node->first_edge = NULL;
+
+      node->stadtid = sourcenode->stadtid;
+      node->kreisid = sourcenode->kreisid;
+      node->bewohner = sourcenode->bewohner;
+
    }
 
+
    // copy edges
-   int e = 0;			     
-   for(int i = 0; i < n - 1; ++i)
+   for ( int e_it = 0 ; e_it < m ; ++e_it )
    {
-      GRAPHNODE * nodestart = &((*graph)->nodes[i]);
-      for(int j = i + 1; j < n; ++j)
-      {
-	 GRAPHNODE * nodeend = &((*graph)->nodes[j]);
-	 
-	 GRAPHEDGE * edgeforw  = &((*graph)->edges[e]);
-	 GRAPHEDGE * edgebackw = &((*graph)->edges[e + m]);
+	   GRAPHEDGE * edgeforw_s  = &(sourcegraph->edges[e_it]);
+	   GRAPHEDGE * edgebackw_s = &(sourcegraph->edges[e_it + m]);
 
-	 // construct two 'parallel' halfedges
-	 edgeforw->adjac  = nodeend;
-	 edgebackw->adjac = nodestart;
-	 edgeforw->back   = edgebackw;
-	 edgebackw->back  = edgeforw;
+	   GRAPHEDGE * edgeforw  = &((*graph)->edges[e_it]);
+	   GRAPHEDGE * edgebackw = &((*graph)->edges[e_it + m]);
 
-	 // copy length
-	 edgeforw->length  = sourcegraph->edges[e].length;
-	 edgebackw->length = edgeforw->length;
 
-	 // insert one of the halfedges into the edge list of the node
-	 if (nodestart->first_edge == NULL)
-	 {
-	    nodestart->first_edge = edgeforw;
-	    nodestart->first_edge->next = NULL;
-	 }
-	 else
-	 {
-	    edgeforw->next = nodestart->first_edge;
-	    nodestart->first_edge = edgeforw;
-	 }
-                   
-	 // dito
-	 if (nodeend->first_edge == NULL)
-	 {
-	    nodeend->first_edge = edgebackw;
-	    nodeend->first_edge->next = NULL;
-	 }
-	 else
-	 {
-	    edgebackw->next = nodeend->first_edge;
-	    nodeend->first_edge = edgebackw;
-	 }           
+	   edgeforw->adjac = &(*graph)->nodes[ edgeforw_s->adjac->id ];
+	   edgebackw->adjac = &(*graph)->nodes[ edgebackw_s->adjac->id ];
+	   edgeforw->back = edgebackw;
+	   edgebackw->back = edgeforw;
 
-	 ++e;
-      } // for j
-   } // for i
+	   edgeforw->length = sourcegraph->edges[e_it].length;
+	   edgebackw->length = edgeforw->length;
+
+		 // insert one of the halfedges into the edge list of the node
+		 if (edgebackw->adjac->first_edge == NULL)
+		 {
+			edgebackw->adjac->first_edge = edgeforw;
+			edgebackw->adjac->first_edge->next = NULL;
+		 }
+		 else
+		 {
+			edgeforw->next = edgebackw->adjac->first_edge;
+			edgebackw->adjac->first_edge = edgeforw;
+		 }
+
+		 // dito
+		 if (edgeforw->adjac->first_edge == NULL)
+		 {
+			 edgeforw->adjac->first_edge = edgebackw;
+			 edgeforw->adjac->first_edge->next = NULL;
+		 }
+		 else
+		 {
+			edgebackw->next = edgeforw->adjac->first_edge;
+			edgeforw->adjac->first_edge = edgebackw;
+		 }
+   }
 
    return SCIP_OKAY;
 }
@@ -138,7 +137,7 @@ SCIP_RETCODE ProbDataWP::scip_copy(
    GRAPH * graph = NULL;
    SCIP_CALL( copy_graph(&graph, sourcegraph) );
 
-   // copy and link variables
+   // copy and link variables der kanten
    int m = graph->nedges;
    for(int e = 0; e < m; ++e)
    {
@@ -162,6 +161,56 @@ SCIP_RETCODE ProbDataWP::scip_copy(
       	  SCIP_CALL( SCIPcaptureVar(scip, edgebackw->var_v[wk]) );
       }
    }
+
+   // copy and link variables der knoten
+   int n = graph->nnodes;
+   for ( int e = 0 ; e < n ; ++e)
+   {
+	   SCIP_Bool success;
+	   GRAPHNODE* node = &(graph->nodes[e]);
+
+	   node->var_v.resize( sourcegraph->nwahlkreise );
+
+	   for ( int wk = 0 ; wk <  sourcegraph->nwahlkreise ; ++wk)
+	   {
+	    	  assert( sourcegraph->nodes[e].var_v[wk] != NULL );
+	      	  SCIP_CALL( SCIPgetVarCopy(sourcescip, scip, sourcegraph->nodes[e].var_v[wk], &(node->var_v[wk]), varmap, consmap, global, &success) );
+	      	  assert(success);
+	      	  assert(node->var_v[wk] != NULL);
+
+	      	  SCIP_CALL( SCIPcaptureVar(scip, node->var_v[wk]) );
+	   }
+   }
+
+   // copy and link Vars des graphen
+	SCIP_Bool success;
+	graph->a_pos_var_v.resize( graph->nwahlkreise );
+	graph->a_neg_var_v.resize( graph->nwahlkreise );
+	for ( int wk = 0 ; wk < graph->nwahlkreise ; ++wk )
+	{
+		  // a_pos
+		  assert( sourcegraph->a_pos_var_v[wk] != NULL );
+    	  SCIP_CALL( SCIPgetVarCopy(sourcescip, scip, sourcegraph->a_pos_var_v[wk], &(graph->a_pos_var_v[wk]), varmap, consmap, global, &success) );
+    	  assert(success);
+    	  assert(graph->a_pos_var_v[wk] != NULL);
+    	  SCIP_CALL( SCIPcaptureVar(scip, graph->a_pos_var_v[wk]) );
+
+    	  // a_neg
+		  assert( sourcegraph->a_neg_var_v[wk] != NULL );
+    	  SCIP_CALL( SCIPgetVarCopy(sourcescip, scip, sourcegraph->a_neg_var_v[wk], &(graph->a_neg_var_v[wk]), varmap, consmap, global, &success) );
+    	  assert(success);
+    	  assert(graph->a_neg_var_v[wk] != NULL);
+    	  SCIP_CALL( SCIPcaptureVar(scip, graph->a_neg_var_v[wk]) );
+	}
+
+	// a_max
+	assert( sourcegraph->a_max_var != NULL );
+	SCIP_CALL( SCIPgetVarCopy(sourcescip, scip, sourcegraph->a_max_var, &(graph->a_max_var), varmap, consmap, global, &success) );
+	assert(success);
+	assert(graph->a_max_var != NULL);
+	SCIP_CALL( SCIPcaptureVar(scip, graph->a_max_var) );
+
+
 
    // allocate memory for target prob data
    ProbDataWP * probdatawp = new ProbDataWP(graph);
@@ -197,6 +246,23 @@ SCIP_RETCODE ProbDataWP::scip_delorig(
 		   SCIP_CALL( SCIPreleaseVar(scip, &graph_->edges[i].var_v[wk]) );
 	   }
    }
+
+//   for( int i = 0; i < graph_->nnodes; i++ )
+//   {
+//	   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
+//	   {
+//		   SCIP_CALL( SCIPreleaseVar(scip, &graph_->nodes[i].var_v[wk]) );
+//	   }
+//   }
+//
+//   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
+//   {
+//	   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_pos_var_v[wk]) );
+//	   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_neg_var_v[wk]) );
+//   }
+//
+//   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_max_var) );
+
    release_graph(&graph_);
 
    return SCIP_OKAY;
@@ -222,6 +288,23 @@ SCIP_RETCODE ProbDataWP::scip_deltrans(
 	   }
 
    }
+
+//   for( int i = 0; i < graph_->nnodes; i++ )
+//   {
+//	   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
+//	   {
+//		   SCIP_CALL( SCIPreleaseVar(scip, &graph_->nodes[i].var_v[wk]) );
+//	   }
+//   }
+//
+//   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
+//   {
+//	   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_pos_var_v[wk]) );
+//	   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_neg_var_v[wk]) );
+//   }
+//
+//   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_max_var) );
+
    release_graph(&graph_);
    
    return SCIP_OKAY;
@@ -249,7 +332,6 @@ SCIP_RETCODE ProbDataWP::scip_trans(
    assert( objprobdata != NULL );
    assert( deleteobject != NULL );
 
-   std::cout << "############ Ausgabe scip_trans" << std::endl;
 
    assert( graph_ != NULL );
 
@@ -257,7 +339,7 @@ SCIP_RETCODE ProbDataWP::scip_trans(
    GRAPH * transgraph = NULL;
    SCIP_CALL( copy_graph(&transgraph, graph_) );
 
-   // copy and link variables
+   // copy and link variables der kanten
    int m = transgraph->nedges;
    for(int e = 0; e < m; ++e)
    {
@@ -267,43 +349,62 @@ SCIP_RETCODE ProbDataWP::scip_trans(
       edgeforw->var_v.resize(graph_->nwahlkreise);
       edgebackw->var_v.resize(graph_->nwahlkreise);
 
-      std::cout << "########## Kante nr: " << e << std::endl;
 
       for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
       {
-    	  std::cout << "########## wk nr: " << wk << std::endl;
 
     	  assert( graph_->edges[e].var_v[wk] != NULL );
-
-    	  std::cout << "############ Ausgabe scip_trans1" << std::endl;
-
-    	  std::cout << "Name: " << SCIPvarGetName( graph_->edges[e].var_v[wk] )  << std::endl;
-
-    	  std::cout << "#### var_v größe: " << graph_->edges[e].var_v.size() << std::endl;
-
-    	  std::cout << "#### edgeforw var_v größe: " << edgeforw->var_v.size() << std::endl;
-
-
     	  SCIP_CALL( SCIPgetTransformedVar(scip, graph_->edges[e].var_v[wk], &(edgeforw->var_v[wk])) );
-
-    	  std::cout << "############ Ausgabe scip_trans1" << std::endl;
-
     	  edgebackw->var_v[wk] = edgeforw->var_v[wk]; // anti-parallel arcs share variable
-
-    	  std::cout << "############ Ausgabe scip_trans1" << std::endl;
-
     	  assert( edgebackw->var_v[wk] != NULL );
     	  SCIP_CALL( SCIPcaptureVar(scip, edgebackw->var_v[wk]) );
       }
    }
 
-   std::cout << "############ Ausgabe scip_trans1" << std::endl;
+//   // copy and link variables der knoten
+//   int n = transgraph->nnodes;
+//   for(int e = 0; e < n; ++e)
+//   {
+//	  GRAPHNODE* node = &(transgraph->nodes[e]);
+//
+//	  node->var_v.resize(graph_->nwahlkreise);
+//
+//      for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
+//      {
+//
+//    	  assert( graph_->nodes[e].var_v[wk] != NULL );
+//    	  SCIP_CALL( SCIPgetTransformedVar(scip, graph_->nodes[e].var_v[wk], &(node->var_v[wk])) );
+//    	  assert( node->var_v[wk] != NULL );
+//    	  SCIP_CALL( SCIPcaptureVar(scip, node->var_v[wk]) );
+//      }
+//   }
+//
+//   // copy and link variables des graphen
+//   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
+//   {
+//
+// 	  assert( graph_->a_pos_var_v[wk] != NULL );
+// 	  SCIP_CALL( SCIPgetTransformedVar(scip, graph_->a_pos_var_v[wk], &(transgraph->a_pos_var_v[wk])) );
+// 	  assert( transgraph->a_pos_var_v[wk] != NULL );
+// 	  SCIP_CALL( SCIPcaptureVar(scip, transgraph->a_pos_var_v[wk]) );
+//
+// 	  assert( graph_->a_neg_var_v[wk] != NULL );
+// 	  SCIP_CALL( SCIPgetTransformedVar(scip, graph_->a_neg_var_v[wk], &(transgraph->a_neg_var_v[wk])) );
+// 	  assert( transgraph->a_neg_var_v[wk] != NULL );
+// 	  SCIP_CALL( SCIPcaptureVar(scip, transgraph->a_neg_var_v[wk]) );
+//   }
+//
+//   assert( graph_->a_max_var != NULL );
+//   SCIP_CALL( SCIPgetTransformedVar(scip, graph_->a_max_var, &(transgraph->a_max_var)) );
+//   assert( transgraph->a_max_var != NULL );
+//   SCIP_CALL( SCIPcaptureVar(scip, transgraph->a_max_var) );
+
+
 
    // allocate memory for target prob data
    ProbDataWP * transprobdatawp = new ProbDataWP(transgraph);
    assert( transprobdatawp != NULL );
 
-   std::cout << "############ Ausgabe scip_trans2" << std::endl;
    // save data pointer
    assert( objprobdata != NULL );
    *objprobdata = transprobdatawp;
@@ -311,7 +412,6 @@ SCIP_RETCODE ProbDataWP::scip_trans(
    // graph is captured by ProbDataWP(graph)
    release_graph(&transgraph);
    
-   std::cout << "############ Ausgabe scip_trans 3" << std::endl;
 
    *deleteobject = TRUE;
 

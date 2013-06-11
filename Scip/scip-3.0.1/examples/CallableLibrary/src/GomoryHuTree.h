@@ -61,6 +61,9 @@ typedef struct GraphNode
 	struct GraphNode      *stack_link;   /**< for stack of active node */
 	struct GraphNode      *parent;       /**< pointer of Gomory-Hu cut tree */
 
+	vector<SCIP_VAR*> var_v;
+
+
 } GRAPHNODE;
 
 
@@ -96,6 +99,11 @@ typedef struct Graph
 	GRAPHNODE             *nodes;        /**< array containing the nodes of the graph */
 
 	GRAPHEDGE             *edges;        /**< array containing all halfedges (thus, it's size is two times nedges) */
+
+	SCIP_VAR* 	a_max_var;
+	vector<SCIP_VAR*> a_pos_var_v;
+	vector<SCIP_VAR*> a_neg_var_v;
+
 
 } GRAPH;
 
