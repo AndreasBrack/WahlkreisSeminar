@@ -61,8 +61,7 @@ typedef struct GraphNode
 	struct GraphNode      *stack_link;   /**< for stack of active node */
 	struct GraphNode      *parent;       /**< pointer of Gomory-Hu cut tree */
 
-	vector<SCIP_VAR*> var_v;
-
+	SCIP_VAR**		      var_v;
 
 } GRAPHNODE;
 
@@ -80,7 +79,7 @@ typedef struct GraphEdge
 
 	//TODO: .var -> .var[#nwahlkreise]
 	SCIP_VAR*             var;
-	vector<SCIP_VAR*> var_v;
+	SCIP_VAR**		      var_v;
 
 	//GraphEdge() : cap(),rcap(),length(),next(NULL), back(NULL), adjac(NULL), var(), var_v(2) {}
 
@@ -100,13 +99,11 @@ typedef struct Graph
 
 	GRAPHEDGE             *edges;        /**< array containing all halfedges (thus, it's size is two times nedges) */
 
-	SCIP_VAR* 	a_max_var;
-	vector<SCIP_VAR*> a_pos_var_v;
-	vector<SCIP_VAR*> a_neg_var_v;
-
+	SCIP_VAR* 			  a_max_var;
+	SCIP_VAR**		      a_pos_var_v;
+	SCIP_VAR**		      a_neg_var_v;
 
 } GRAPH;
-
 
 extern
 SCIP_Bool create_graph(int n, int m, GRAPH** gr);
@@ -115,7 +112,7 @@ extern
 void capture_graph(GRAPH* gr);
 
 extern
-void release_graph(GRAPH** gr);
+void release_graph(SCIP* scip, GRAPH** gr);
 
 extern
 SCIP_Bool gmincut(GRAPH *gr, double *mincap, long *n_shore);
