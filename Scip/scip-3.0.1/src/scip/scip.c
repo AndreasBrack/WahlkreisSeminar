@@ -11140,7 +11140,8 @@ SCIP_RETCODE initPresolve(
 
    /* inform plugins that the presolving is abound to begin */
    SCIP_CALL( SCIPsetInitprePlugins(scip->set, scip->mem->probmem, scip->stat) );
-   assert(SCIPbufferGetNUsed(scip->set->buffer) == 0);
+   /* assertion auskommentiert */
+  // assert(SCIPbufferGetNUsed(scip->set->buffer) == 0);
 
    /* remove empty and single variable cliques from the clique table, and convert all two variable cliques
     * into implications
