@@ -1,22 +1,17 @@
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-/*                                                                           */
-/*                  This file is part of the program and library             */
-/*         SCIP --- Solving Constraint Integer Programs                      */
-/*                                                                           */
-/*    Copyright (C) 2002-2013 Konrad-Zuse-Zentrum                            */
-/*                            fuer Informationstechnik Berlin                */
-/*                                                                           */
-/*  SCIP is distributed under the terms of the ZIB Academic License.         */
-/*                                                                           */
-/*  You should have received a copy of the ZIB Academic License.             */
-/*  along with SCIP; see the file COPYING. If not email to scip@zib.de.      */
-/*                                                                           */
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /**@file   ReaderWP.cpp
  * @brief  C++ file reader for WP data files
  * @author Timo Berthold
+ * @author Sebastian Goderbauer
+ * @author Markus Kruber
+ * @author Andreas Brack
  */
+
+
+#define FAK_0						 1		/**< Faktor der Kanten */
+#define FAK_1					   100		/**< Faktor vor a_max */
+#define KOSTEN_VERSCHWK 			25		/**< Strafkosten falls benachbarte Kreisgleiche Städte verschiedene Wahlkreise erhalten*/
+#define KOSTEN_GLEICHWK 			 0		/**< */
 
 #define SCIP_DEBUG
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
@@ -67,7 +62,6 @@ void ReaderWP::getNodesFromFile(
 	int ibewohner;
 
 	int i = 0;
-	int nodenumber;
 	GRAPHNODE* node = &(graph->nodes[0]);
 
 
@@ -134,12 +128,12 @@ void ReaderWP::getEdgesFromFile(
 	GRAPHEDGE* edgebackw;
 
 	string idStart;
-	long int iidStart;
-	long int KiidStart;
+	long int iidStart = -1;
+	long int KiidStart = -1;
 
 	string idTarget;
-	long int iidTarget;
-	long int KiidTarget;
+	long int iidTarget = -1;
+	long int KiidTarget = -1;
 
 	int i = 0;
 
@@ -233,7 +227,7 @@ double ReaderWP::getavg(GRAPH* G, int nwahlkreise)
 {
 	int gesamtbewohner = 0;
 
-	for ( unsigned int i = 0 ; i < G->nnodes ; i++ )
+	for ( int i = 0 ; i < G->nnodes ; i++ )
 	{
 		gesamtbewohner += G->nodes[i].bewohner;
 	}
@@ -262,7 +256,7 @@ string ReaderWP::convertInt(int number)
 
 int ReaderWP::idtoid(GRAPH* G, long int id)
 {
-	for(unsigned int i = 0; i < G->nnodes; i++)
+	for(int i = 0; i < G->nnodes; i++)
 		if(G->nodes[i].stadtid == id)
 			return i;
 	exit(-1);
@@ -340,17 +334,9 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 	stringstream str;
 
-	SCIP_RETCODE retcode;
-
 	GRAPH* graph = new Graph();
 
-#ifdef SCIP_DEBUG
-	double** weights = NULL;
-#endif
-
 	string token;
-
-	retcode = SCIP_OKAY;
 	*result = SCIP_DIDNOTRUN;
 
 	// open the file
@@ -472,8 +458,10 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 		      // the variable is named after the two nodes connected by the edge it represents
 		      varname << "x_" << edge->back->adjac->stadtid << "_" << edge->adjac->stadtid << "_" << wk_it;
-		      SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY,
-		    		  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
+		      SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 1.0,
+		    		  FAK_0 * (edge->back->adjac->kreisid == edge->adjac->kreisid)? KOSTEN_GLEICHWK : KOSTEN_VERSCHWK,
+		    		  SCIP_VARTYPE_BINARY, TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
+
 
 		      /* add variable to SCIP and to the graph */
 		      SCIP_CALL( SCIPaddVar(scip, var) );
@@ -565,10 +553,8 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 	stringstream varname;
 
-	// the variable
-	// TODO: Zielfunktionskoeffizient
 	varname << "a_max";
-	SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 0.5, 5.0, SCIP_VARTYPE_CONTINUOUS,
+	SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 0.5, FAK_1, SCIP_VARTYPE_CONTINUOUS,
 		  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
 
 	/* add variable to SCIP */
