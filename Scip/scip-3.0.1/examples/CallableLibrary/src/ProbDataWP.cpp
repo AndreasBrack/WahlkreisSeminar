@@ -134,6 +134,11 @@ SCIP_RETCODE ProbDataWP::scip_copy(
    assert( sourceprobdatawp != NULL );
    GRAPH * sourcegraph = sourceprobdatawp->graph_;
    assert( sourcegraph != NULL );
+   //a_pos_var_v
+   assert( sourcegraph->a_neg_var_v[0] != NULL );
+   assert( sourcegraph->edges[0].var_v[0] != NULL );
+   assert( sourcegraph->nodes[0].var_v[0] != NULL );
+
 
    // copy graph
    GRAPH * graph = NULL;
@@ -147,8 +152,8 @@ SCIP_RETCODE ProbDataWP::scip_copy(
       GRAPHEDGE * edgeforw  = &(graph->edges[e]);
       GRAPHEDGE * edgebackw = &(graph->edges[e + m]);
 
-      SCIPallocBufferArray(scip, &(edgebackw->var_v), sourcegraph->nwahlkreise);
-      SCIPallocBufferArray(scip, &(edgeforw->var_v) ,sourcegraph->nwahlkreise);
+      SCIPallocMemoryArray(scip, &(edgebackw->var_v), sourcegraph->nwahlkreise);
+      SCIPallocMemoryArray(scip, &(edgeforw->var_v) ,sourcegraph->nwahlkreise);
 
       for (int wk = 0 ; wk < sourcegraph->nwahlkreise ; ++wk)
       {
@@ -175,10 +180,12 @@ SCIP_RETCODE ProbDataWP::scip_copy(
 	   GRAPHNODE* node = &(graph->nodes[e]);
 	   assert(node->bewohner > 0 && node->kreisid > 0);
 
-	   SCIPallocBufferArray(scip, &(node->var_v), sourcegraph->nwahlkreise );
+	   SCIPallocMemoryArray(scip, &(node->var_v), sourcegraph->nwahlkreise );
 
 	   for ( int wk = 0; wk <  sourcegraph->nwahlkreise; ++wk)
 	   {
+		   std::cout << "node: " << e << "  wk: " << wk << std::endl;
+
 	      assert( sourcegraph->nodes[e].var_v[wk] != NULL );
 	      SCIP_CALL( SCIPgetVarCopy(sourcescip, scip, sourcegraph->nodes[e].var_v[wk], &(node->var_v[wk]), varmap, consmap, global, &success) );
 	      assert(success);
@@ -191,8 +198,8 @@ SCIP_RETCODE ProbDataWP::scip_copy(
    // copy and link Vars des graphen
 	SCIP_Bool success;
 
-	SCIPallocBufferArray(scip, &( graph->a_pos_var_v), graph->nwahlkreise );
-	SCIPallocBufferArray(scip, &( graph->a_neg_var_v), graph->nwahlkreise );
+	SCIPallocMemoryArray(scip, &( graph->a_pos_var_v), graph->nwahlkreise );
+	SCIPallocMemoryArray(scip, &( graph->a_neg_var_v), graph->nwahlkreise );
 	for ( int wk = 0 ; wk < graph->nwahlkreise ; ++wk )
 	{
 		  // a_pos
@@ -254,21 +261,21 @@ SCIP_RETCODE ProbDataWP::scip_delorig(
 	   }
    }
 
-//   for( int i = 0; i < graph_->nnodes; i++ )
-//   {
-//	   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
-//	   {
-//		   SCIP_CALL( SCIPreleaseVar(scip, &graph_->nodes[i].var_v[wk]) );
-//	   }
-//   }
-//
-//   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
-//   {
-//	   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_pos_var_v[wk]) );
-//	   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_neg_var_v[wk]) );
-//   }
-//
-//   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_max_var) );
+   for( int i = 0; i < graph_->nnodes; i++ )
+   {
+	   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
+	   {
+		   SCIP_CALL( SCIPreleaseVar(scip, &graph_->nodes[i].var_v[wk]) );
+	   }
+   }
+
+   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
+   {
+	   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_pos_var_v[wk]) );
+	   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_neg_var_v[wk]) );
+   }
+
+   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_max_var) );
 
    release_graph(scip, &graph_);
 
@@ -296,21 +303,21 @@ SCIP_RETCODE ProbDataWP::scip_deltrans(
 
    }
 
-//   for( int i = 0; i < graph_->nnodes; i++ )
-//   {
-//	   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
-//	   {
-//		   SCIP_CALL( SCIPreleaseVar(scip, &graph_->nodes[i].var_v[wk]) );
-//	   }
-//   }
-//
-//   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
-//   {
-//	   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_pos_var_v[wk]) );
-//	   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_neg_var_v[wk]) );
-//   }
-//
-//   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_max_var) );
+   for( int i = 0; i < graph_->nnodes; i++ )
+   {
+	   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
+	   {
+		   SCIP_CALL( SCIPreleaseVar(scip, &graph_->nodes[i].var_v[wk]) );
+	   }
+   }
+
+   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
+   {
+	   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_pos_var_v[wk]) );
+	   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_neg_var_v[wk]) );
+   }
+
+   SCIP_CALL( SCIPreleaseVar(scip, &graph_->a_max_var) );
 
    release_graph(scip, &graph_);
    
@@ -353,8 +360,8 @@ SCIP_RETCODE ProbDataWP::scip_trans(
       GRAPHEDGE * edgeforw  = &(transgraph->edges[e]);
       GRAPHEDGE * edgebackw = &(transgraph->edges[e + m]);
 
-	   SCIPallocBufferArray(scip, &(edgeforw->var_v), graph_->nwahlkreise);
-	   SCIPallocBufferArray(scip, &(edgebackw->var_v), graph_->nwahlkreise);
+	   SCIPallocMemoryArray(scip, &(edgeforw->var_v), graph_->nwahlkreise);
+	   SCIPallocMemoryArray(scip, &(edgebackw->var_v), graph_->nwahlkreise);
 
 
       for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
@@ -368,43 +375,47 @@ SCIP_RETCODE ProbDataWP::scip_trans(
       }
    }
 
-//   // copy and link variables der knoten
-//   int n = transgraph->nnodes;
-//   for(int e = 0; e < n; ++e)
-//   {
-//	  GRAPHNODE* node = &(transgraph->nodes[e]);
-//
-//	  node->var_v.resize(graph_->nwahlkreise);
-//
-//      for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
-//      {
-//
-//    	  assert( graph_->nodes[e].var_v[wk] != NULL );
-//    	  SCIP_CALL( SCIPgetTransformedVar(scip, graph_->nodes[e].var_v[wk], &(node->var_v[wk])) );
-//    	  assert( node->var_v[wk] != NULL );
-//    	  SCIP_CALL( SCIPcaptureVar(scip, node->var_v[wk]) );
-//      }
-//   }
-//
-//   // copy and link variables des graphen
-//   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
-//   {
-//
-// 	  assert( graph_->a_pos_var_v[wk] != NULL );
-// 	  SCIP_CALL( SCIPgetTransformedVar(scip, graph_->a_pos_var_v[wk], &(transgraph->a_pos_var_v[wk])) );
-// 	  assert( transgraph->a_pos_var_v[wk] != NULL );
-// 	  SCIP_CALL( SCIPcaptureVar(scip, transgraph->a_pos_var_v[wk]) );
-//
-// 	  assert( graph_->a_neg_var_v[wk] != NULL );
-// 	  SCIP_CALL( SCIPgetTransformedVar(scip, graph_->a_neg_var_v[wk], &(transgraph->a_neg_var_v[wk])) );
-// 	  assert( transgraph->a_neg_var_v[wk] != NULL );
-// 	  SCIP_CALL( SCIPcaptureVar(scip, transgraph->a_neg_var_v[wk]) );
-//   }
-//
-//   assert( graph_->a_max_var != NULL );
-//   SCIP_CALL( SCIPgetTransformedVar(scip, graph_->a_max_var, &(transgraph->a_max_var)) );
-//   assert( transgraph->a_max_var != NULL );
-//   SCIP_CALL( SCIPcaptureVar(scip, transgraph->a_max_var) );
+   // copy and link variables der knoten
+   int n = transgraph->nnodes;
+   for(int e = 0; e < n; ++e)
+   {
+	  GRAPHNODE* node = &(transgraph->nodes[e]);
+
+	 // node->var_v.resize(graph_->nwahlkreise);
+	  SCIPallocMemoryArray(scip, &(node->var_v), graph_->nwahlkreise);
+
+      for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
+      {
+
+    	  assert( graph_->nodes[e].var_v[wk] != NULL );
+    	  SCIP_CALL( SCIPgetTransformedVar(scip, graph_->nodes[e].var_v[wk], &(node->var_v[wk])) );
+    	  assert( node->var_v[wk] != NULL );
+    	  SCIP_CALL( SCIPcaptureVar(scip, node->var_v[wk]) );
+      }
+   }
+
+   SCIPallocMemoryArray(scip, &(transgraph->a_pos_var_v), graph_->nwahlkreise);
+   SCIPallocMemoryArray(scip, &(transgraph->a_neg_var_v), graph_->nwahlkreise);
+
+   // copy and link variables des graphen
+   for (int wk = 0 ; wk < graph_->nwahlkreise ; ++wk)
+   {
+
+ 	  assert( graph_->a_pos_var_v[wk] != NULL );
+ 	  SCIP_CALL( SCIPgetTransformedVar(scip, graph_->a_pos_var_v[wk], &(transgraph->a_pos_var_v[wk])) );
+ 	  assert( transgraph->a_pos_var_v[wk] != NULL );
+ 	  SCIP_CALL( SCIPcaptureVar(scip, transgraph->a_pos_var_v[wk]) );
+
+ 	  assert( graph_->a_neg_var_v[wk] != NULL );
+ 	  SCIP_CALL( SCIPgetTransformedVar(scip, graph_->a_neg_var_v[wk], &(transgraph->a_neg_var_v[wk])) );
+ 	  assert( transgraph->a_neg_var_v[wk] != NULL );
+ 	  SCIP_CALL( SCIPcaptureVar(scip, transgraph->a_neg_var_v[wk]) );
+   }
+
+   assert( graph_->a_max_var != NULL );
+   SCIP_CALL( SCIPgetTransformedVar(scip, graph_->a_max_var, &(transgraph->a_max_var)) );
+   assert( transgraph->a_max_var != NULL );
+   SCIP_CALL( SCIPcaptureVar(scip, transgraph->a_max_var) );
 
 
 

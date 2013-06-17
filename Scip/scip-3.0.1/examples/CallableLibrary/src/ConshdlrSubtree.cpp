@@ -518,7 +518,7 @@ SCIP_DECL_CONSLOCK(ConshdlrSubtree::scip_lock)
 
    G = consdata->G;
    assert(G != NULL);
-   /* TODO @Gido: add some locks.*/
+   /* TODO  add some locks.*/
 //   for( int i = 0; i < g->nedges; ++i )
 //   {
 //      SCIP_CALL( SCIPaddVarLocks(scip, g->edges[i].var, nlocksneg, nlockspos) );

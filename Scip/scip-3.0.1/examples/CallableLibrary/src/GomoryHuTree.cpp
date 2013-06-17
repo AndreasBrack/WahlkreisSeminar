@@ -82,9 +82,9 @@ void free_graph (SCIP* scip, GRAPH** gr)
 		/* TODO release all existing Vars */
 		for(int j = 0; j < (*gr)->nwahlkreise; j++)
 		{
-			SCIPreleaseVar(scip, &((*gr)->nodes[i].var_v[j]));
+			//SCIPreleaseVar(scip, &((*gr)->nodes[i].var_v[j]));
 		}
-		SCIPfreeBufferArray(scip, &((*gr)->nodes[i].var_v));
+		SCIPfreeMemoryArray(scip, &((*gr)->nodes[i].var_v));
 	}
 
 	for(int i = 0; i < (*gr)->nedges; i++)
@@ -92,13 +92,13 @@ void free_graph (SCIP* scip, GRAPH** gr)
 		/* TODO release all existing Vars */
 		for(int j = 0; j < (*gr)->nwahlkreise; j++)
 		{
-			SCIPreleaseVar(scip, &((*gr)->edges[i].var_v[j]));
+			//SCIPreleaseVar(scip, &((*gr)->edges[i].var_v[j]));
 		}
-		SCIPfreeBufferArray(scip, &((*gr)->edges[i].var_v));
+		SCIPfreeMemoryArray(scip, &((*gr)->edges[i].var_v));
 	}
 
-	SCIPfreeBufferArray(scip, &((*gr)->a_neg_var_v));
-	SCIPfreeBufferArray(scip, &((*gr)->a_pos_var_v));
+	SCIPfreeMemoryArray(scip, &((*gr)->a_neg_var_v));
+	SCIPfreeMemoryArray(scip, &((*gr)->a_pos_var_v));
 
 	BMSfreeMemory(&(*gr)->nodes);
 	BMSfreeMemory(&(*gr)->edges);

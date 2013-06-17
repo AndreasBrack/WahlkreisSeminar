@@ -11140,8 +11140,11 @@ SCIP_RETCODE initPresolve(
 
    /* inform plugins that the presolving is abound to begin */
    SCIP_CALL( SCIPsetInitprePlugins(scip->set, scip->mem->probmem, scip->stat) );
-   /* assertion auskommentiert */
-  // assert(SCIPbufferGetNUsed(scip->set->buffer) == 0);
+//   printf("Buffer: %"SCIP_LONGINT_FORMAT" \n", SCIPbufferGetNUsed(scip->set->buffer));
+
+  // SCIPdebugMessage("BUFFER: %"SCIP_LONGINT_FORMAT" \n", SCIPbufferGetNUsed(scip->set->buffer));
+   assert(SCIPbufferGetNUsed(scip->set->buffer) == 0);
+
 
    /* remove empty and single variable cliques from the clique table, and convert all two variable cliques
     * into implications
@@ -34506,6 +34509,12 @@ SCIP_RETCODE SCIPallocBufferSize(
    SCIP_CALL( checkStage(scip, "SCIPallocBufferSize", TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE) );
 
    SCIP_CALL( SCIPsetAllocBufferSize(scip->set, ptr, size) );
+
+
+   //printf("Buffer mehr : %"SCIP_LONGINT_FORMAT" \n", size);
+   //printf("Jetzt BUFFER:: %"SCIP_LONGINT_FORMAT" \n", SCIPbufferGetNUsed(scip->set->buffer));
+
+   //SCIPbufferPrint(scip->set->buffer);
 
    return SCIP_OKAY;
 }
