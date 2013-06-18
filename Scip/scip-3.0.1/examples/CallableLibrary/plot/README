@@ -1,0 +1,56 @@
+******************************************************
+
+Zur Übersicht über die gesamte Datenaufbereitung siehe
+"Data_Preperation_Pipeline.pdf"
+
+******************************************************
+
+Kurzform:
+1. python Scip_Input.py (falls Input für neues BLD benötigt wird)
+2. python Read_Scip_Solution.py
+3. gnuplot Plot_Scip_Output.gp
+
+******************************************************
+
+Erzeugen von einem Input-file für Scip:
+
+INFO:
+Als Grundlage dient die Datei Gemeinden.pickle. In dem Python
+Format pickle sind Daten zu allen Gemeinden in Form eines Dictonary
+abgespeichert. Als Schlüssel dient der jeweilige Gemeindeschlüssel.
+Jede Gemeinde besitzt desweiteren die folgenden Attribute:
+
+name
+kreis
+pos
+einwohner
+deutsch
+ndeutsch
+nachbarn
+
+AUSFÜHREN:
+Im Skript "Scip_Input.py" ist das Bundesland auszuwählen und die
+Anzahl der Wahlkreise in Zeile 55 anzupassen.
+Nach dem Ausführen erstellt das Skript eine Datei 
+"Scip_Input_BUNDESLAND.wp", welche mit Scip eingelesen werden kann.
+
+******************************************************
+
+Plotten einer Scip Lösung:
+
+AUSFÜHREN:
+Das Skript "Read_Scip_Solution.py"  liest eine Lösung von Scip mit
+Namen "Scip_Solution".
+
+INFO:
+Hauptsächlich schreibt es die Kanten und Knotenlösungen in getrennte 
+Files ("Scip_Edge_Solution.dat", "Scip_Node_Solution.dat", 
+"Edges_For_Gnuplot.dat") und erstellt ein dynamisches Gnuplot-file
+"plot_Scip_Output.gp", welches die Lösung plottet.
+
+AUSFÜHREN:
+"Plot_Scip_Gnuplot.gp"
+Erstellt eine Datei "Scip_Result.pdf"
+
+******************************************************
+
