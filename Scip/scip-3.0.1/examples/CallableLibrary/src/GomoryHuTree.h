@@ -51,8 +51,8 @@ typedef struct GraphNode
 	double                excess;
 	double                mincap;        /**< capacity of minimum cut between node and parent in GH cut tree */
 
-	SCIP_Bool             unmarked;      /**< while BFS in progress */
-	SCIP_Bool             alive;
+	SCIP_Bool              unmarked;      /**< while BFS in progress */
+	SCIP_Bool              alive;
 
 	struct GraphEdge      *first_edge;   /**< in list of incident edges */
 	struct GraphEdge      *scan_ptr;     /**< next edge to be scanned when node will be visited again */
@@ -61,7 +61,7 @@ typedef struct GraphNode
 	struct GraphNode      *stack_link;   /**< for stack of active node */
 	struct GraphNode      *parent;       /**< pointer of Gomory-Hu cut tree */
 
-	SCIP_VAR**		      var_v;
+	SCIP_VAR**		       var_v;		  /**< Varpointer. Laenge n.
 
 } GRAPHNODE;
 
