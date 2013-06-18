@@ -34,20 +34,86 @@ SCIP_Bool findSubtree(
    SCIP_SOL*          sol                 /**< proposed solution */
    )
 {
-	GRAPHNODE* node, first_node;
-	GRAPHEDGE* edge;
-	GRAPHEDGE* edge2;
-	int nnodes = graph->nnodes;
+	GRAPHNODE* adjnode;
+	GRAPHNODE* first_node;
+	int nnodes;
+	int nwk;
+	int wknr;
+	int i;
+	int ckante;
 	std::set<GRAPHNODE*> set_nodes;
 	std::set<GRAPHNODE*> aktnodes;
 
-	for (int i = 0 ; i < graph->nnodes ; ++i) {
+
+	/* Folgendes Startet eine Breitensuche: */
+
+	/* Bereite eine Menge an unabgearbeiteten Knoten vor. */
+	nnodes = graph->nnodes;
+	nwk    = graph->nwahlkreise;
+	for( i = 0; i < graph->nnodes ; ++i) {
 		set_nodes.insert(&graph->nodes[i]);
 	}
 
-	first_node = set_nodes.begin();
 
-	return TRUE;
+	/* Solange noch nicht abgearbeitete Knoten existieren machen wir weiter */
+	while( !set_nodes.empty() )
+	{
+		/* falls in der Aktuellen Menge noch Knoten sind, starte mit einem davon, sonst nehme neuen */
+		if( !aktnodes.empty() )
+			first_node = &(*(aktnodes.begin()));
+		else
+		{
+			first_node = &(*(set_nodes.begin()));
+			aktnodes.insert(first_node);
+		}
+
+		/* den Wahlkreis von dem Knoten finden, damit man innen nicht immer alle vars durchsuchen muss */
+		wknr = -1;
+		for( i = 0; i < nwk; i++)
+		{
+			if( SCIPisGT(scip, SCIPgetSolVal(scip, sol, first_node->var_v[i]), 0.5) ){
+				wknr = i;
+				break;
+			}
+		}
+		/* falls nicht gefunden exit */
+		if(wknr == -1)
+		{
+			SCIPdebugMessage("Fehler im Subtree finden Wahlkreis = -1");
+			exit(-1);
+		}
+
+		/* ausgehende Kanten im richtigen Wahlkreis verfolgen */
+		/* dazu iteriere durch alle Kanten */
+		for(ckante = 0; ckante < graph->nedges; ckante++){
+
+			/* Knoten enthalten und Kante in Lsg? */
+			if( (graph->edges[ckante].adjac->id == first_node->id /*|| graph->edges[ckante].back->adjac->id == first_node.id */) &&
+					SCIPisGT(scip, SCIPgetSolVal(scip, sol, graph->edges[ckante].var_v[wknr]), 0.5))
+			{
+				adjnode = graph->edges[ckante].back->adjac;
+
+				/* Falls wir den Knoten schon abgehandelt haben, continue mit nächster Kante*/
+				std::set<SCIP_NODE*>::iterator it = set_nodes.find( adjnode );
+				if( it != set_nodes.end() )
+					continue;
+
+				/* sonst suche Knoten in der aktuell gefundenen Menge */
+				std::set<SCIP_NODE*>::iterator it = aktnodes.find( adjnode );
+				/* falls drin, haben wir einen Kreis */
+				if(it != aktnodes.end())
+					return TRUE;
+
+				/* ansonsten fügen wir den Knoten zur aktuellen Menge hinzu */
+				aktnodes.insert( adjnode );
+			}
+		}
+
+		/* in diesem Knoten sind jetzt alle Kanten abgearbeitet. Ab nun wird er vernachlässigt */
+		set_nodes.erase( first_node );
+		aktnodes.erase( first_node );
+	}
+	return FALSE;
 }
 
 

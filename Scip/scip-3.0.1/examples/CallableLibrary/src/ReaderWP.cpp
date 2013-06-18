@@ -140,25 +140,15 @@ void ReaderWP::getEdgesFromFile(
 	edgeforw = &( graph->edges[0] );
 	edgebackw = &( graph->edges[graph->nedges] );
 
-
-//	/* Initialisierung */
-//	edgeforw->var_v = new vector<SCIP_VAR*>;
-//	edgebackw->var_v = new vector<SCIP_VAR*>;
-
-	//std::cout << "token: " << token << std::endl;
-
 	// extract every edge out of the filestream
 	while (!token.compare("e") && i < graph->nedges && !filedata.eof() )
 	{
-		//std::cout << " Kante Nr: " << i << std::endl;
-
 		/* Get informations from Filedata */
 		getline(filedata, idStart, ',');
 		iidStart =  atol(idStart.c_str());
-		//std::cout << "iidStart: " <<iidStart << std::endl;
 		getline(filedata, idTarget);
 		iidTarget =  atol(idTarget.c_str());
-		//std::cout << "iidTarget: " <<iidTarget << std::endl;
+
 
 		// Brauchen zu iidStart und iidTargent die interne Nodesid
 		for ( int id = 0 ; id < graph->nnodes ; id++  )
@@ -181,8 +171,7 @@ void ReaderWP::getEdgesFromFile(
         // resize edge->var_v
         SCIPallocMemoryArray(scip, &(edgeforw->var_v), graph->nwahlkreise);
         SCIPallocMemoryArray(scip, &(edgebackw->var_v), graph->nwahlkreise);
- //       SCIPallocBufferArray(scip, &(edgeforw->var_v), graph->nwahlkreise);
-//        SCIPallocBufferArray(scip, &(edgebackw->var_v), graph->nwahlkreise);
+
 
 
         // insert one of the halfedges into the edge list of the node

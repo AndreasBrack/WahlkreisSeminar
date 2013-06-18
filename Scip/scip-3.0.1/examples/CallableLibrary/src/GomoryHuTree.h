@@ -61,7 +61,7 @@ typedef struct GraphNode
 	struct GraphNode      *stack_link;   /**< for stack of active node */
 	struct GraphNode      *parent;       /**< pointer of Gomory-Hu cut tree */
 
-	SCIP_VAR**		       var_v;		  /**< Varpointer. Laenge n.
+	SCIP_VAR**		       var_v;		  /**< Varpointer. Laenge #WK. */
 
 } GRAPHNODE;
 
@@ -79,7 +79,7 @@ typedef struct GraphEdge
 
 	//TODO: .var -> .var[#nwahlkreise]
 	SCIP_VAR*             var;
-	SCIP_VAR**		      var_v;
+	SCIP_VAR**		      var_v;		 /**< Varpointer. Laenge #WK */
 
 	//GraphEdge() : cap(),rcap(),length(),next(NULL), back(NULL), adjac(NULL), var(), var_v(2) {}
 
@@ -95,7 +95,7 @@ typedef struct Graph
 
 	int 				  nwahlkreise;
 
-	GRAPHNODE             *nodes;        /**< array containing the nodes of the graph */
+	GraphNode             *nodes;        /**< array containing the nodes of the graph */
 
 	GRAPHEDGE             *edges;        /**< array containing all halfedges (thus, it's size is two times nedges) */
 
