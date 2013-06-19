@@ -5,7 +5,7 @@
  *      Author: andreas
  */
 
-
+#define SCIP_DEBUG
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
 
 #include <cassert>
@@ -34,22 +34,29 @@ SCIP_Bool findSubtree(
 		SCIP_SOL*          sol                 /**< proposed solution */
 )
 {
+	SCIPdebugMessage("beginne findSubtree\n");
 	GRAPHNODE* adjnode;
 	GRAPHNODE* first_node;
 	int nnodes;
 	int nwk;
 	int wknr;
 	int i;
-	int ckante;
+	int ckante = 0;
 	std::set<GRAPHNODE*> set_nodes;
 	std::set<GRAPHNODE*> aktnodes;
 
+	assert(scip != NULL);
+	assert(graph != NULL);
+	assert(sol != NULL);
 
 	/* Folgendes Startet eine Breitensuche: */
 
 	/* Bereite eine Menge an unabgearbeiteten Knoten vor. */
 	nnodes = graph->nnodes;
+	assert(nnodes > 0);
+
 	nwk    = graph->nwahlkreise;
+	assert(nwk > 0);
 	for( i = 0; i < graph->nnodes ; ++i) {
 		set_nodes.insert(&graph->nodes[i]);
 	}
@@ -77,11 +84,7 @@ SCIP_Bool findSubtree(
 			}
 		}
 		/* falls nicht gefunden exit */
-		if(wknr == -1)
-		{
-			SCIPdebugMessage("Fehler im Subtree finden Wahlkreis = -1");
-			exit(-1);
-		}
+		assert(wknr != -1);
 
 		/* ausgehende Kanten im richtigen Wahlkreis verfolgen */
 		/* dazu iteriere durch alle Kanten */
@@ -136,12 +139,19 @@ std::set<std::set<GRAPHNODE*> > getsubtrees(
 	std::set<GRAPHNODE*> set_nodes;
 	std::set<GRAPHNODE*> aktnodes;
 
+	assert(scip != NULL);
+	assert(graph != NULL);
+	assert(sol != NULL);
+
 
 	/* Folgendes Startet eine Breitensuche: */
 
 	/* Bereite eine Menge an unabgearbeiteten Knoten vor. */
 	nnodes = graph->nnodes;
 	nwk    = graph->nwahlkreise;
+	assert(nnodes > 0);
+	assert(nwk > 0);
+
 	for( i = 0; i < graph->nnodes ; ++i) {
 		set_nodes.insert(&graph->nodes[i]);
 	}
@@ -174,6 +184,7 @@ std::set<std::set<GRAPHNODE*> > getsubtrees(
 				break;
 			}
 		}
+		assert(wknr != -1);
 		/* falls nicht gefunden exit */
 		if(wknr == -1)
 		{
@@ -234,6 +245,7 @@ SCIP_RETCODE sepaSubtree(
 {
 	assert(result != NULL);
 	assert(graph != NULL);
+	assert(sol != NULL);
 
 	int nwk = graph->nwahlkreise;
 	assert(nwk > 0);
@@ -339,6 +351,7 @@ SCIP_DECL_CONSSEPALP(ConshdlrSubtree::scip_sepalp)
 		SCIP_ConsData* consdata = SCIPconsGetData(conss[i]);
 		graph = consdata->G;
 
+		assert(graph != NULL);
 		SCIP_CALL( sepaSubtree(scip, conshdlr, graph, NULL, result) );
 	}
 
@@ -374,6 +387,7 @@ SCIP_DECL_CONSSEPASOL(ConshdlrSubtree::scip_sepasol)
 		SCIP_ConsData* consdata = SCIPconsGetData(conss[i]);
 		graph = consdata->G;
 
+		assert(graph != 0);
 		SCIP_CALL( sepaSubtree(scip, conshdlr, graph, sol, result) );
 	}
 	return SCIP_OKAY;
