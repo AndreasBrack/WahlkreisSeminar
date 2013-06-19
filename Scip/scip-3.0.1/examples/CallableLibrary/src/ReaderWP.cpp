@@ -26,7 +26,7 @@
 #include "scip/cons_linear.h"
 #include <math.h>
 
-//#include "ConshdlrSubtree.h"
+#include "ConshdlrSubtree.h"
 #include "ReaderWP.h"
 #include "ProbDataWP.h"
 
@@ -841,10 +841,11 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
     // # Für alle S Teilmenge Städte, 3 <= /S/ <= /Städte/- 1:
 	// # sum(i,j in E, w in W) x(i,j,w) <= /S/ -1
 	// ############################################################################################################################
-	//SCIP_CALL( SCIPcreateConsSubtree(scip, &cons, "subtree", graph,
-	//         FALSE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, TRUE ) );
-	//SCIP_CALL( SCIPaddCons(scip, cons) );
-	//SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+	SCIP_Cons* cons;
+	SCIP_CALL( SCIPcreateConsSubtree(scip, &cons, "subtree", graph,
+	         FALSE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, TRUE ) );
+	SCIP_CALL( SCIPaddCons(scip, cons) );
+	SCIP_CALL( SCIPreleaseCons(scip, &cons) );
 
 	SCIPdebugMessage("verlasse Setup\n");
 
