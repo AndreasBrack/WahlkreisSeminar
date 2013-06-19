@@ -12,6 +12,7 @@
 #include <string>
 #include <iostream>
 #include "ConshdlrSubtree.h"
+#include "ProbDataWP.h"
 
 #include "objscip/objscip.h"
 
@@ -47,7 +48,7 @@ SCIP_Bool findSubtree(
 
 	assert(scip != NULL);
 	assert(graph != NULL);
-	assert(sol != NULL);
+	//assert(sol != NULL);
 
 	/* Folgendes Startet eine Breitensuche: */
 
@@ -141,7 +142,7 @@ std::set<std::set<GRAPHNODE*> > getsubtrees(
 
 	assert(scip != NULL);
 	assert(graph != NULL);
-	assert(sol != NULL);
+	//assert(sol != NULL);
 
 
 	/* Folgendes Startet eine Breitensuche: */
@@ -245,7 +246,7 @@ SCIP_RETCODE sepaSubtree(
 {
 	assert(result != NULL);
 	assert(graph != NULL);
-	assert(sol != NULL);
+	//assert(sol != NULL);
 
 	int nwk = graph->nwahlkreise;
 	assert(nwk > 0);
@@ -347,9 +348,11 @@ SCIP_DECL_CONSSEPALP(ConshdlrSubtree::scip_sepalp)
 
 	for(int i = 0; i < nusefulconss; i++)
 	{
-		GRAPH* graph;
-		SCIP_ConsData* consdata = SCIPconsGetData(conss[i]);
-		graph = consdata->G;
+		ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>( SCIPgetObjProbData(scip)) ;
+		GRAPH* graph = ProbData->getGraph();
+//		GRAPH* graph;
+//		SCIP_ConsData* consdata = SCIPconsGetData(conss[i]);
+//		graph = consdata->G;
 
 		assert(graph != NULL);
 		SCIP_CALL( sepaSubtree(scip, conshdlr, graph, NULL, result) );
@@ -383,9 +386,12 @@ SCIP_DECL_CONSSEPASOL(ConshdlrSubtree::scip_sepasol)
 	// TODO Aufruf richtig machen?!
 	for(int i = 0; i < nusefulconss; i++)
 	{
-		GRAPH* graph;
-		SCIP_ConsData* consdata = SCIPconsGetData(conss[i]);
-		graph = consdata->G;
+
+		ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
+		GRAPH* graph = ProbData->getGraph();
+//		GRAPH* graph;
+//		SCIP_ConsData* consdata = SCIPconsGetData(conss[i]);
+//		graph = consdata->G;
 
 		assert(graph != 0);
 		SCIP_CALL( sepaSubtree(scip, conshdlr, graph, sol, result) );
@@ -430,12 +436,15 @@ SCIP_DECL_CONSENFOLP(ConshdlrSubtree::scip_enfolp)
 
 	for( int i = 0; i < nconss; ++i )
 	{
-		SCIP_CONSDATA* consdata;
-		GRAPH* G;
+		ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
+		GRAPH* G = ProbData->getGraph();
+
+//		SCIP_CONSDATA* consdata;
+//		GRAPH* G;
 		SCIP_Bool found;
-		consdata = SCIPconsGetData(conss[i]);
-		assert(consdata != NULL);
-		G = consdata->G;
+//		consdata = SCIPconsGetData(conss[i]);
+//		assert(consdata != NULL);
+//		G = consdata->G;
 		assert(G != NULL);
 
 		found = findSubtree(scip, G, NULL);
@@ -484,13 +493,17 @@ SCIP_DECL_CONSENFOPS(ConshdlrSubtree::scip_enfops)
 
 	for( int i = 0; i < nconss; ++i )
 	{
-		SCIP_CONSDATA* consdata;
-		Graph* G;
+
+		ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
+		GRAPH* G = ProbData->getGraph();
+
+//		SCIP_CONSDATA* consdata;
+//		Graph* G;
 		SCIP_Bool found;
 
-		consdata = SCIPconsGetData(conss[i]);
-		assert(consdata != NULL);
-		G = consdata->G;
+//		consdata = SCIPconsGetData(conss[i]);
+//		assert(consdata != NULL);
+//		G = consdata->G;
 		assert(G != NULL);
 
 		// if a subtree is found, the solution must be infeasible
@@ -529,13 +542,16 @@ SCIP_DECL_CONSCHECK(ConshdlrSubtree::scip_check)
 
 	for( int i = 0; i < nconss; ++i )
 	{
-		SCIP_CONSDATA* consdata;
-		GRAPH* G;
+//		SCIP_CONSDATA* consdata;
+//		GRAPH* G;
 		SCIP_Bool found;
 
-		consdata = SCIPconsGetData(conss[i]);
-		assert(consdata != NULL);
-		G = consdata->G;
+		ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>( SCIPgetObjProbData(scip) );
+		GRAPH* G = ProbData->getGraph();
+
+//		consdata = SCIPconsGetData(conss[i]);
+//		assert(consdata != NULL);
+//		G = consdata->G;
 		assert(G != NULL);
 
 		// if a subtree is found, the solution must be infeasible
@@ -626,13 +642,17 @@ SCIP_DECL_CONSPROP(ConshdlrSubtree::scip_prop)
  */
 SCIP_DECL_CONSLOCK(ConshdlrSubtree::scip_lock)
 {
-	SCIP_CONSDATA* consdata;
-	GRAPH* G;
 
-	consdata = SCIPconsGetData(cons);
-	assert(consdata != NULL);
+	ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
+	GRAPH* G = ProbData->getGraph();
 
-	G = consdata->G;
+//	SCIP_CONSDATA* consdata;
+//	GRAPH* G;
+//
+//	consdata = SCIPconsGetData(cons);
+//	assert(consdata != NULL);
+//
+//	G = consdata->G;
 	assert(G != NULL);
 	/* TODO  add some locks.*/
 	//   for( int i = 0; i < g->nedges; ++i )
