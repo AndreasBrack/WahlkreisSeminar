@@ -184,7 +184,7 @@ SCIP_RETCODE ProbDataWP::scip_copy(
 
 	   for ( int wk = 0; wk <  sourcegraph->nwahlkreise; ++wk)
 	   {
-		   std::cout << "node: " << e << "  wk: " << wk << std::endl;
+//		  SCIPdebugMessage( "node: %d,  wk: %d" ,e , wk);
 
 	      assert( sourcegraph->nodes[e].var_v[wk] != NULL );
 	      SCIP_CALL( SCIPgetVarCopy(sourcescip, scip, sourcegraph->nodes[e].var_v[wk], &(node->var_v[wk]), varmap, consmap, global, &success) );

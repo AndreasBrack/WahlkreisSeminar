@@ -26,6 +26,7 @@
 
 #include "objscip/objscip.h"
 #include <vector>
+#include <set>
 #include <sstream>
 #include <iostream>
 #include <fstream>

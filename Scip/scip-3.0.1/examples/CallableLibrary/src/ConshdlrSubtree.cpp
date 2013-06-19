@@ -23,16 +23,16 @@ using namespace std;
 
 struct SCIP_ConsData
 {
-   Graph* G;
+	Graph* G;
 };
 
 /* checks whether proposed solution contains a subtree */
 static
 SCIP_Bool findSubtree(
-   SCIP*              scip,               /**< SCIP data structure */
-   GRAPH* 			  graph,	          /**< underlying B */
-   SCIP_SOL*          sol                 /**< proposed solution */
-   )
+		SCIP*              scip,               /**< SCIP data structure */
+		GRAPH* 			   graph,	          /**< underlying B */
+		SCIP_SOL*          sol                 /**< proposed solution */
+)
 {
 	GRAPHNODE* adjnode;
 	GRAPHNODE* first_node;
@@ -60,10 +60,10 @@ SCIP_Bool findSubtree(
 	{
 		/* falls in der Aktuellen Menge noch Knoten sind, starte mit einem davon, sonst nehme neuen */
 		if( !aktnodes.empty() )
-			first_node = &(*(aktnodes.begin()));
+			first_node = *(aktnodes.begin());
 		else
 		{
-			first_node = &(*(set_nodes.begin()));
+			first_node = *(set_nodes.begin());
 			aktnodes.insert(first_node);
 		}
 
@@ -94,14 +94,14 @@ SCIP_Bool findSubtree(
 				adjnode = graph->edges[ckante].back->adjac;
 
 				/* Falls wir den Knoten schon abgehandelt haben, continue mit nächster Kante*/
-				std::set<SCIP_NODE*>::iterator it = set_nodes.find( adjnode );
-				if( it != set_nodes.end() )
+				std::set<GRAPHNODE*>::iterator ittmp1 = set_nodes.find( adjnode );
+				if( ittmp1 != set_nodes.end() )
 					continue;
 
 				/* sonst suche Knoten in der aktuell gefundenen Menge */
-				std::set<SCIP_NODE*>::iterator it = aktnodes.find( adjnode );
+				std::set<GRAPHNODE*>::iterator ittmp2 = aktnodes.find( adjnode );
 				/* falls drin, haben wir einen Kreis */
-				if(it != aktnodes.end())
+				if(ittmp2 != aktnodes.end())
 					return TRUE;
 
 				/* ansonsten fügen wir den Knoten zur aktuellen Menge hinzu */
@@ -116,106 +116,160 @@ SCIP_Bool findSubtree(
 	return FALSE;
 }
 
+/* Diese Methode gibt eine Menge von Mengen an Knoten zurück. Jede innere Menge bildet einen Kreis. */
+static
+std::set<std::set<GRAPHNODE*> > getsubtrees(
+		SCIP* scip,
+		SCIP_SOL* sol,
+		GRAPH* graph
+)
+{
+	std::set<std::set<GRAPHNODE*> > setset;
 
-/* separates subtree elemination cuts */
+	GRAPHNODE* adjnode;
+	GRAPHNODE* first_node;
+	int nnodes;
+	int nwk;
+	int wknr;
+	int i;
+	int ckante;
+	std::set<GRAPHNODE*> set_nodes;
+	std::set<GRAPHNODE*> aktnodes;
+
+
+	/* Folgendes Startet eine Breitensuche: */
+
+	/* Bereite eine Menge an unabgearbeiteten Knoten vor. */
+	nnodes = graph->nnodes;
+	nwk    = graph->nwahlkreise;
+	for( i = 0; i < graph->nnodes ; ++i) {
+		set_nodes.insert(&graph->nodes[i]);
+	}
+	std::set<GRAPHNODE*> circle;
+
+
+	/* Solange noch nicht abgearbeitete Knoten existieren machen wir weiter */
+	while( !set_nodes.empty() )
+	{
+		/* falls in der Aktuellen Menge noch Knoten sind, starte mit einem davon, sonst nehme neuen */
+		if( !aktnodes.empty() )
+			first_node = *(aktnodes.begin());
+		else
+		{
+
+			first_node = *(set_nodes.begin());
+			aktnodes.insert(first_node);
+
+			/* falls wir keinen Alten Knoten mehr haben, hatten wir keinen Kreis. Flashen also Circle. */
+			circle.clear();
+			circle.insert( first_node );
+		}
+
+		/* den Wahlkreis von dem Knoten finden, damit man innen nicht immer alle vars durchsuchen muss */
+		wknr = -1;
+		for( i = 0; i < nwk; i++)
+		{
+			if( SCIPisGT(scip, SCIPgetSolVal(scip, sol, first_node->var_v[i]), 0.5) ){
+				wknr = i;
+				break;
+			}
+		}
+		/* falls nicht gefunden exit */
+		if(wknr == -1)
+		{
+			SCIPdebugMessage("Fehler im Subtree finden Wahlkreis = -1");
+			exit(-1);
+		}
+
+		/* ausgehende Kanten im richtigen Wahlkreis verfolgen */
+		/* dazu iteriere durch alle Kanten */
+		for(ckante = 0; ckante < graph->nedges; ckante++){
+
+			/* Knoten enthalten und Kante in Lsg? */
+			if( (graph->edges[ckante].adjac->id == first_node->id /*|| graph->edges[ckante].back->adjac->id == first_node.id */) &&
+					SCIPisGT(scip, SCIPgetSolVal(scip, sol, graph->edges[ckante].var_v[wknr]), 0.5))
+			{
+				adjnode = graph->edges[ckante].back->adjac;
+
+				/* Falls wir den Knoten schon abgehandelt haben, continue mit nächster Kante*/
+				std::set<GRAPHNODE*>::iterator ittmp1 = set_nodes.find( adjnode );
+				if( ittmp1 != set_nodes.end() )
+					continue;
+
+				/* sonst suche Knoten in der aktuell gefundenen Menge */
+				std::set<GRAPHNODE*>::iterator ittmp2 = aktnodes.find( adjnode );
+				/* falls drin, haben wir einen Kreis */
+				if(ittmp2 != aktnodes.end())
+				{
+					/* zur Menge hinzufügen */
+					setset.insert( circle );
+				}
+
+				/* ansonsten fügen wir den Knoten zur aktuellen Menge hinzu */
+				aktnodes.insert( adjnode );
+				circle.insert( adjnode );
+			}
+		}
+
+		/* in diesem Knoten sind jetzt alle Kanten abgearbeitet. Ab nun wird er vernachlässigt */
+		set_nodes.erase( first_node );
+		aktnodes.erase( first_node );
+	}
+
+	return setset;
+}
+
+/** Diese Methode separiert Subtrees. Aufruf von getsubtrees um Subtrees zu finden. */
 static
 SCIP_RETCODE sepaSubtree(
-   SCIP*              scip,               /**< SCIP data structure */
-   SCIP_CONSHDLR*     conshdlr,           /**< the constraint handler itself */
-   SCIP_CONS**        conss,              /**< array of constraints to process */
-   int                nconss,             /**< number of constraints to process */
-   int                nusefulconss,       /**< number of useful (non-obsolete) constraints to process */
-   SCIP_SOL*          sol,                /**< primal solution that should be separated */
-   SCIP_RESULT*       result              /**< pointer to store the result of the separation call */
-   )
+		SCIP*              scip,               /**< SCIP data structure */
+		SCIP_CONSHDLR*     conshdlr,           /**< the constraint handler itself */
+		//		SCIP_CONS** cons,
+		//		int nconss,
+		//		int nusefolconss,
+		GRAPH*			   graph,			   /**< the Graph structure */
+		SCIP_SOL*          sol,                /**< primal solution that should be separated */
+		SCIP_RESULT*       result              /**< pointer to store the result of the separation call */
+)
 {
 	assert(result != NULL);
+	assert(graph != NULL);
 
-	   *result = SCIP_DIDNOTFIND;
+	int nwk = graph->nwahlkreise;
+	assert(nwk > 0);
 
-	   for( int c = 0; c < nusefulconss; ++c )
-	   {
-	      // get all required structures
-	      SCIP_CONSDATA* consdata;
-	      GRAPH* graph;
-	      consdata = SCIPconsGetData(conss[c]);
-	      assert(consdata != NULL);
-	      graph = consdata->G;
-	      assert(graph != NULL);
+	*result = SCIP_DIDNOTFIND;
 
-	      double cap;
+	std::set<std::set<GRAPHNODE*> > setset = getsubtrees(scip, sol, graph);
 
-	      // store the suggested, but infeasible solution into the capacity of the edges
-	      for( int i = 0; i < graph->nedges; i++)
-	      {
-	         cap = SCIPgetSolVal(scip, sol, graph->edges[i].var);
-	         graph->edges[i].rcap = cap;
-	         graph->edges[i].cap = cap;
-	         graph->edges[i].back->rcap = cap;
-	         graph->edges[i].back->cap = cap;
-	      }
+	// für alle Kreise fügen wir eine neue Row hinzu.
+	for(std::set<std::set<GRAPHNODE*> >::iterator it = setset.begin(); it != setset.end(); it++)
+	{
+		/* Diesen Kreis in ALLEN Wahlkreisen verbieten */
+		for(int wk = 0; wk < nwk; wk++)
+		{
+			SCIP_ROW* row;
+			SCIP_CALL( SCIPcreateEmptyRowCons(scip, &row, conshdlr, "sepa_subtree", 0.0, it->size(),
+					FALSE, FALSE, TRUE) );
 
-	      SCIP_Bool** cuts;
-	      int ncuts;
+			SCIP_CALL( SCIPcacheRowExtensions(scip, row) );
 
-	      SCIP_CALL( SCIPallocBufferArray(scip, &cuts, graph->nnodes) );
-	      for(int i = 0; i < graph->nnodes; i++)
-	      {
-	         SCIP_CALL( SCIPallocBufferArray(scip, &cuts[i], graph->nnodes) );
-	      }
+			for(std::set<GRAPHNODE*>::iterator inn = it->begin(); inn != it->end(); inn++)
+			{
+				SCIP_CALL( SCIPaddVarToRow(scip, row, (*inn)->var_v[wk], 1.0) );
+			}
+			SCIP_CALL( SCIPflushRowExtensions(scip, row) );
 
-	      // try to find cuts
-	      if( ghc_tree( graph, cuts, &ncuts, SCIPfeastol(scip) ) )
-	      {
-	         int i = 0;
-
-	         // create a new cutting plane for every suitable arc (representing a cut with value < 2) of the Gomory Hu Tree
-	         while( i < ncuts )
-	         {
-	            SCIP_ROW* row;
-	            SCIP_CALL( SCIPcreateEmptyRowCons(scip, &row, conshdlr, "sepa_con", 2.0, SCIPinfinity(scip), FALSE, FALSE, TRUE) );
-
-	            SCIP_CALL( SCIPcacheRowExtensions(scip, row) );
-
-	            for( int j = 0; j < graph->nnodes; j++)
-	            {
-	               // in gmincut the graph has been partitioned into two parts, represented by bools
-	               if( cuts[i][j] )
-	               {
-	                  GRAPHEDGE* edge = graph->nodes[j].first_edge;
-
-	                  // take every edge with nodes in different parts into account
-	                  while( edge != NULL )
-	                  {
-	                     if( !cuts[i][edge->adjac->id] )
-	                     {
-	                        SCIP_CALL( SCIPaddVarToRow(scip, row, edge->var, 1.0) );
-	                     }
-	                     edge = edge->next;
-	                  }
-	               }
-	            }
-
-	            SCIP_CALL( SCIPflushRowExtensions(scip, row) );
-
-	            // add cut
-	            if( SCIPisCutEfficacious(scip, sol, row) )
-	            {
-	               SCIP_CALL( SCIPaddCut(scip, sol, row, FALSE) );
-	               *result = SCIP_SEPARATED;
-	            }
-	            SCIP_CALL( SCIPreleaseRow(scip, &row) );
-
-	            i++;
-	         }
-	      }
-	      for( int i = graph->nnodes - 1; i >= 0; i-- )
-	         SCIPfreeBufferArray( scip, &cuts[i] );
-	      SCIPfreeBufferArray( scip, &cuts );
-
-	   }
-
-	   return SCIP_OKAY;
+			// add cut
+			if( SCIPisCutEfficacious(scip, sol, row) )
+			{
+				SCIP_CALL( SCIPaddCut(scip, sol, row, FALSE) );
+				*result = SCIP_SEPARATED;
+			}
+			SCIP_CALL( SCIPreleaseRow(scip, &row) );
+		}
+	}
+	return SCIP_OKAY;
 }
 
 
@@ -226,34 +280,34 @@ SCIP_RETCODE sepaSubtree(
  */
 SCIP_DECL_CONSDELETE(ConshdlrSubtree::scip_delete)
 {
-   assert(consdata != NULL);
+	assert(consdata != NULL);
 
-   SCIPfreeMemory(scip, consdata);
+	SCIPfreeMemory(scip, consdata);
 
-   return SCIP_OKAY;
+	return SCIP_OKAY;
 }
 
 
 /** transforms constraint data into data belonging to the transformed problem */
 SCIP_DECL_CONSTRANS(ConshdlrSubtree::scip_trans)
 {
-   SCIP_CONSDATA* sourcedata = NULL;
-   SCIP_CONSDATA* targetdata = NULL;
+	SCIP_CONSDATA* sourcedata = NULL;
+	SCIP_CONSDATA* targetdata = NULL;
 
-   sourcedata = SCIPconsGetData(sourcecons);
-   assert( sourcedata != NULL );
+	sourcedata = SCIPconsGetData(sourcecons);
+	assert( sourcedata != NULL );
 
-   SCIP_CALL( SCIPallocMemory(scip, &targetdata) );
-   targetdata->G = sourcedata->G;
+	SCIP_CALL( SCIPallocMemory(scip, &targetdata) );
+	targetdata->G = sourcedata->G;
 
-   /* create target constraint */
-   SCIP_CALL( SCIPcreateCons(scip, targetcons, SCIPconsGetName(sourcecons), conshdlr, targetdata,
-         SCIPconsIsInitial(sourcecons), SCIPconsIsSeparated(sourcecons), SCIPconsIsEnforced(sourcecons),
-         SCIPconsIsChecked(sourcecons), SCIPconsIsPropagated(sourcecons),  SCIPconsIsLocal(sourcecons),
-         SCIPconsIsModifiable(sourcecons), SCIPconsIsDynamic(sourcecons), SCIPconsIsRemovable(sourcecons),
-         SCIPconsIsStickingAtNode(sourcecons)) );
+	/* create target constraint */
+	SCIP_CALL( SCIPcreateCons(scip, targetcons, SCIPconsGetName(sourcecons), conshdlr, targetdata,
+			SCIPconsIsInitial(sourcecons), SCIPconsIsSeparated(sourcecons), SCIPconsIsEnforced(sourcecons),
+			SCIPconsIsChecked(sourcecons), SCIPconsIsPropagated(sourcecons),  SCIPconsIsLocal(sourcecons),
+			SCIPconsIsModifiable(sourcecons), SCIPconsIsDynamic(sourcecons), SCIPconsIsRemovable(sourcecons),
+			SCIPconsIsStickingAtNode(sourcecons)) );
 
-   return SCIP_OKAY;
+	return SCIP_OKAY;
 }
 
 
@@ -277,9 +331,18 @@ SCIP_DECL_CONSTRANS(ConshdlrSubtree::scip_trans)
  */
 SCIP_DECL_CONSSEPALP(ConshdlrSubtree::scip_sepalp)
 {
-   SCIP_CALL( sepaSubtree(scip, conshdlr, conss, nconss, nusefulconss, NULL, result) );
+	// TODO Aufruf richtig machen??
 
-   return SCIP_OKAY;
+	for(int i = 0; i < nusefulconss; i++)
+	{
+		GRAPH* graph;
+		SCIP_ConsData* consdata = SCIPconsGetData(conss[i]);
+		graph = consdata->G;
+
+		SCIP_CALL( sepaSubtree(scip, conshdlr, graph, NULL, result) );
+	}
+
+	return SCIP_OKAY;
 }
 
 
@@ -304,9 +367,16 @@ SCIP_DECL_CONSSEPALP(ConshdlrSubtree::scip_sepalp)
  */
 SCIP_DECL_CONSSEPASOL(ConshdlrSubtree::scip_sepasol)
 {
-   SCIP_CALL( sepaSubtree(scip, conshdlr, conss, nconss, nusefulconss, sol, result) );
+	// TODO Aufruf richtig machen?!
+	for(int i = 0; i < nusefulconss; i++)
+	{
+		GRAPH* graph;
+		SCIP_ConsData* consdata = SCIPconsGetData(conss[i]);
+		graph = consdata->G;
 
-   return SCIP_OKAY;
+		SCIP_CALL( sepaSubtree(scip, conshdlr, graph, sol, result) );
+	}
+	return SCIP_OKAY;
 }
 
 
@@ -342,26 +412,26 @@ SCIP_DECL_CONSSEPASOL(ConshdlrSubtree::scip_sepasol)
  */
 SCIP_DECL_CONSENFOLP(ConshdlrSubtree::scip_enfolp)
 {
-   *result = SCIP_FEASIBLE;
+	*result = SCIP_FEASIBLE;
 
-   for( int i = 0; i < nconss; ++i )
-   {
-      SCIP_CONSDATA* consdata;
-      GRAPH* G;
-      SCIP_Bool found;
-      consdata = SCIPconsGetData(conss[i]);
-      assert(consdata != NULL);
-      G = consdata->G;
-      assert(G != NULL);
+	for( int i = 0; i < nconss; ++i )
+	{
+		SCIP_CONSDATA* consdata;
+		GRAPH* G;
+		SCIP_Bool found;
+		consdata = SCIPconsGetData(conss[i]);
+		assert(consdata != NULL);
+		G = consdata->G;
+		assert(G != NULL);
 
-      found = findSubtree(scip, G, NULL);
+		found = findSubtree(scip, G, NULL);
 
-      // if a subtree was found, we generate a cut constraint saying that there must be at least two outgoing edges
-      if( found )
-         *result = SCIP_INFEASIBLE;
-   }
+		// if a subtree was found, we generate a cut constraint saying that there must be at least two outgoing edges
+		if( found )
+			*result = SCIP_INFEASIBLE;
+	}
 
-   return SCIP_OKAY;
+	return SCIP_OKAY;
 }
 
 /** constraint enforcing method of constraint handler for pseudo solutions
@@ -396,26 +466,26 @@ SCIP_DECL_CONSENFOLP(ConshdlrSubtree::scip_enfolp)
  */
 SCIP_DECL_CONSENFOPS(ConshdlrSubtree::scip_enfops)
 {
-   *result = SCIP_FEASIBLE;
+	*result = SCIP_FEASIBLE;
 
-   for( int i = 0; i < nconss; ++i )
-   {
-      SCIP_CONSDATA* consdata;
-      Graph* G;
-      SCIP_Bool found;
+	for( int i = 0; i < nconss; ++i )
+	{
+		SCIP_CONSDATA* consdata;
+		Graph* G;
+		SCIP_Bool found;
 
-      consdata = SCIPconsGetData(conss[i]);
-      assert(consdata != NULL);
-      G = consdata->G;
-      assert(G != NULL);
+		consdata = SCIPconsGetData(conss[i]);
+		assert(consdata != NULL);
+		G = consdata->G;
+		assert(G != NULL);
 
-      // if a subtree is found, the solution must be infeasible
-      found = findSubtree(scip, G, NULL);
-      if( found )
-         *result = SCIP_INFEASIBLE;
-   }
+		// if a subtree is found, the solution must be infeasible
+		found = findSubtree(scip, G, NULL);
+		if( found )
+			*result = SCIP_INFEASIBLE;
+	}
 
-   return SCIP_OKAY;
+	return SCIP_OKAY;
 }
 
 /** feasibility check method of constraint handler for primal solutions
@@ -441,34 +511,34 @@ SCIP_DECL_CONSENFOPS(ConshdlrSubtree::scip_enfops)
  */
 SCIP_DECL_CONSCHECK(ConshdlrSubtree::scip_check)
 {
-   *result = SCIP_FEASIBLE;
+	*result = SCIP_FEASIBLE;
 
-   for( int i = 0; i < nconss; ++i )
-   {
-      SCIP_CONSDATA* consdata;
-      GRAPH* G;
-      SCIP_Bool found;
+	for( int i = 0; i < nconss; ++i )
+	{
+		SCIP_CONSDATA* consdata;
+		GRAPH* G;
+		SCIP_Bool found;
 
-      consdata = SCIPconsGetData(conss[i]);
-      assert(consdata != NULL);
-      G = consdata->G;
-      assert(G != NULL);
+		consdata = SCIPconsGetData(conss[i]);
+		assert(consdata != NULL);
+		G = consdata->G;
+		assert(G != NULL);
 
-      // if a subtree is found, the solution must be infeasible
-      found = findSubtree(scip, G, sol);
-      if( found )
-      {
-         *result = SCIP_INFEASIBLE;
-         if( printreason )
-         {
-            SCIP_CALL( SCIPprintCons(scip, conss[i], NULL) );
-            SCIPinfoMessage(scip, NULL, "violation: B has a subtree\n");
-         }
-      }
-   }
+		// if a subtree is found, the solution must be infeasible
+		found = findSubtree(scip, G, sol);
+		if( found )
+		{
+			*result = SCIP_INFEASIBLE;
+			if( printreason )
+			{
+				SCIP_CALL( SCIPprintCons(scip, conss[i], NULL) );
+				SCIPinfoMessage(scip, NULL, "violation: B has a subtree\n");
+			}
+		}
+	}
 
 
-   return SCIP_OKAY;
+	return SCIP_OKAY;
 }
 
 /** domain propagation method of constraint handler
@@ -486,9 +556,9 @@ SCIP_DECL_CONSCHECK(ConshdlrSubtree::scip_check)
  */
 SCIP_DECL_CONSPROP(ConshdlrSubtree::scip_prop)
 {
-   assert(result != NULL);
-   *result = SCIP_DIDNOTRUN;
-   return SCIP_OKAY;
+	assert(result != NULL);
+	*result = SCIP_DIDNOTRUN;
+	return SCIP_OKAY;
 }
 
 /** variable rounding lock method of constraint handler
@@ -542,21 +612,21 @@ SCIP_DECL_CONSPROP(ConshdlrSubtree::scip_prop)
  */
 SCIP_DECL_CONSLOCK(ConshdlrSubtree::scip_lock)
 {
-   SCIP_CONSDATA* consdata;
-   GRAPH* G;
+	SCIP_CONSDATA* consdata;
+	GRAPH* G;
 
-   consdata = SCIPconsGetData(cons);
-   assert(consdata != NULL);
+	consdata = SCIPconsGetData(cons);
+	assert(consdata != NULL);
 
-   G = consdata->G;
-   assert(G != NULL);
-   /* TODO  add some locks.*/
-//   for( int i = 0; i < g->nedges; ++i )
-//   {
-//      SCIP_CALL( SCIPaddVarLocks(scip, g->edges[i].var, nlocksneg, nlockspos) );
-//   }
+	G = consdata->G;
+	assert(G != NULL);
+	/* TODO  add some locks.*/
+	//   for( int i = 0; i < g->nedges; ++i )
+	//   {
+	//      SCIP_CALL( SCIPaddVarLocks(scip, g->edges[i].var, nlocksneg, nlockspos) );
+	//   }
 
-   return SCIP_OKAY;
+	return SCIP_OKAY;
 }
 
 /** variable deletion method of constraint handler
@@ -572,7 +642,7 @@ SCIP_DECL_CONSLOCK(ConshdlrSubtree::scip_lock)
  */
 SCIP_DECL_CONSDELVARS(ConshdlrSubtree::scip_delvars)
 {
-   return SCIP_OKAY;
+	return SCIP_OKAY;
 }
 
 
@@ -582,25 +652,25 @@ SCIP_DECL_CONSDELVARS(ConshdlrSubtree::scip_delvars)
  */
 SCIP_DECL_CONSPRINT(ConshdlrSubtree::scip_print)
 {
-   SCIP_CONSDATA* consdata;
-   GRAPH* g;
+	SCIP_CONSDATA* consdata;
+	GRAPH* g;
 
-   consdata = SCIPconsGetData(cons);
-   assert(consdata != NULL);
+	consdata = SCIPconsGetData(cons);
+	assert(consdata != NULL);
 
-   g = consdata->G;
-   assert(g != NULL);
+	g = consdata->G;
+	assert(g != NULL);
 
-   SCIPinfoMessage(scip, file, "subtree of Graph G with  nodes and edges\n");
+	SCIPinfoMessage(scip, file, "subtree of Graph G with  nodes and edges\n");
 
-   return SCIP_OKAY;
+	return SCIP_OKAY;
 }
 
 /** clone method which will be used to copy a objective plugin */
 SCIP_DECL_CONSHDLRCLONE(ObjProbCloneable* ConshdlrSubtree::clone)
 {
-   *valid = true;
-   return new ConshdlrSubtree(scip);
+	*valid = true;
+	return new ConshdlrSubtree(scip);
 }
 
 /** constraint copying method of constraint handler
@@ -610,69 +680,74 @@ SCIP_DECL_CONSHDLRCLONE(ObjProbCloneable* ConshdlrSubtree::clone)
  */
 SCIP_DECL_CONSCOPY(ConshdlrSubtree::scip_copy)
 {
-   SCIP_CONSHDLR* conshdlr = NULL;
-   SCIP_CONSDATA* consdata = NULL;
+	SCIP_CONSHDLR* conshdlr = NULL;
+	SCIP_CONSDATA* consdata = NULL;
 
-   /* find the subtree constraint handler */
-   conshdlr = SCIPfindConshdlr(scip, "subtree");
-   if( conshdlr == NULL )
-   {
-      SCIPerrorMessage("subtree constraint handler not found\n");
-      return SCIP_PLUGINNOTFOUND;
-   }
+	/* find the subtree constraint handler */
+	conshdlr = SCIPfindConshdlr(scip, "subtree");
+	if( conshdlr == NULL )
+	{
+		SCIPerrorMessage("subtree constraint handler not found\n");
+		return SCIP_PLUGINNOTFOUND;
+	}
 
-   /* create constraint data */
-   SCIP_CALL( SCIPallocMemory( scip, &consdata) );
+	/* create constraint data */
+	SCIP_CALL( SCIPallocMemory( scip, &consdata) );
 
-   /* erhalte Bundesland */
-   GRAPH* G = NULL;
+	/* erhalte Bundesland */
+	GRAPH* G = NULL;
 
-   consdata->G = G;
+	consdata->G = G;
 
-   /* create constraint */
-   SCIP_CALL( SCIPcreateCons(scip, cons, (name == NULL) ? SCIPconsGetName(sourcecons) : name,
-         conshdlr, consdata, initial, separate, enforce, check,
-         propagate, local, modifiable, dynamic, removable, FALSE) );
+	/* create constraint */
+	SCIP_CALL( SCIPcreateCons(scip, cons, (name == NULL) ? SCIPconsGetName(sourcecons) : name,
+			conshdlr, consdata, initial, separate, enforce, check,
+			propagate, local, modifiable, dynamic, removable, FALSE) );
 
-   *valid = true;
-   return SCIP_OKAY;
+	*valid = true;
+	return SCIP_OKAY;
 }
 
+/*
+ReaderWP.cpp:(.text+0x5fc4): undefined reference to `tree::SCIPcreateConsSubtree
+		(Scip*, SCIP_Cons**, char const*, Graph*, unsigned int, unsigned int,
+				unsigned int, unsigned int, unsigned int, unsigned int, unsigned int,
+				unsigned int, unsigned int)' */
 /** creates and captures a TSP subtree constraint */
 SCIP_RETCODE tree::SCIPcreateConsSubtree(
-   SCIP*                 scip,               /**< SCIP data structure */
-   SCIP_CONS**           cons,               /**< pointer to hold the created constraint */
-   const char*           name,               /**< name of constraint */
-   GRAPH*				 graph,				 /**< the underlying graph structure */
-   SCIP_Bool             initial,            /**< should the LP relaxation of constraint be in the initial LP? */
-   SCIP_Bool             separate,           /**< should the constraint be separated during LP processing? */
-   SCIP_Bool             enforce,            /**< should the constraint be enforced during node processing? */
-   SCIP_Bool             check,              /**< should the constraint be checked for feasibility? */
-   SCIP_Bool             propagate,          /**< should the constraint be propagated during node processing? */
-   SCIP_Bool             local,              /**< is constraint only valid locally? */
-   SCIP_Bool             modifiable,         /**< is constraint modifiable (subject to column generation)? */
-   SCIP_Bool             dynamic,            /**< is constraint dynamic? */
-   SCIP_Bool             removable           /**< should the constraint be removed from the LP due to aging or cleanup? */
-   )
+		SCIP*                 scip,               /**< SCIP data structure */
+		SCIP_CONS**           cons,               /**< pointer to hold the created constraint */
+		const char*          name,               /**< name of constraint */
+		GRAPH*				  graph,			  /**< the underlying graph structure */
+		SCIP_Bool             initial,            /**< should the LP relaxation of constraint be in the initial LP? */
+		SCIP_Bool             separate,           /**< should the constraint be separated during LP processing? */
+		SCIP_Bool             enforce,            /**< should the constraint be enforced during node processing? */
+		SCIP_Bool             check,              /**< should the constraint be checked for feasibility? */
+		SCIP_Bool             propagate,          /**< should the constraint be propagated during node processing? */
+		SCIP_Bool             local,              /**< is constraint only valid locally? */
+		SCIP_Bool             modifiable,         /**< is constraint modifiable (subject to column generation)? */
+		SCIP_Bool             dynamic,            /**< is constraint dynamic? */
+		SCIP_Bool             removable           /**< should the constraint be removed from the LP due to aging or cleanup? */
+)
 {
-   SCIP_CONSHDLR* conshdlr = NULL;
-   SCIP_CONSDATA* consdata = NULL;
+	SCIP_CONSHDLR* conshdlr = NULL;
+	SCIP_CONSDATA* consdata = NULL;
 
-   /* find the subtree constraint handler */
-   conshdlr = SCIPfindConshdlr(scip, "subtree");
-   if( conshdlr == NULL )
-   {
-      SCIPerrorMessage("subtree constraint handler not found\n");
-      return SCIP_PLUGINNOTFOUND;
-   }
+	/* find the subtree constraint handler */
+	conshdlr = SCIPfindConshdlr(scip, "subtree");
+	if( conshdlr == NULL )
+	{
+		SCIPerrorMessage("subtree constraint handler not found\n");
+		return SCIP_PLUGINNOTFOUND;
+	}
 
-   /* create constraint data */
-   SCIP_CALL( SCIPallocMemory( scip, &consdata) );
-   consdata->G = graph;
+	/* create constraint data */
+	SCIP_CALL( SCIPallocMemory( scip, &consdata) );
+	consdata->G = graph;
 
-   /* create constraint */
-   SCIP_CALL( SCIPcreateCons(scip, cons, name, conshdlr, consdata, initial, separate, enforce, check, propagate,
-         local, modifiable, dynamic, removable, FALSE) );
+	/* create constraint */
+	SCIP_CALL( SCIPcreateCons(scip, cons, name, conshdlr, consdata, initial, separate, enforce, check, propagate,
+			local, modifiable, dynamic, removable, FALSE) );
 
-   return SCIP_OKAY;
+	return SCIP_OKAY;
 }
