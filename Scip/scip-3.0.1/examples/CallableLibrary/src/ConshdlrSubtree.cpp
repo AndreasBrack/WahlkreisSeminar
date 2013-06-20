@@ -48,7 +48,11 @@ SCIP_Bool findSubtree(
 
 	assert(scip != NULL);
 	assert(graph != NULL);
-	//assert(sol != NULL);
+
+	if(sol == NULL)
+		return FALSE;
+
+	assert(sol != NULL);
 
 	/* Folgendes Startet eine Breitensuche: */
 
@@ -142,7 +146,11 @@ std::set<std::set<GRAPHNODE*> > getsubtrees(
 
 	assert(scip != NULL);
 	assert(graph != NULL);
-	//assert(sol != NULL);
+
+	if(sol == NULL)
+		return FALSE;
+
+	assert(sol != NULL);
 
 
 	/* Folgendes Startet eine Breitensuche: */
@@ -236,22 +244,24 @@ static
 SCIP_RETCODE sepaSubtree(
 		SCIP*              scip,               /**< SCIP data structure */
 		SCIP_CONSHDLR*     conshdlr,           /**< the constraint handler itself */
-		//		SCIP_CONS** cons,
-		//		int nconss,
-		//		int nusefolconss,
 		GRAPH*			   graph,			   /**< the Graph structure */
 		SCIP_SOL*          sol,                /**< primal solution that should be separated */
 		SCIP_RESULT*       result              /**< pointer to store the result of the separation call */
 )
 {
+	*result = SCIP_DIDNOTFIND;
+
 	assert(result != NULL);
 	assert(graph != NULL);
-	//assert(sol != NULL);
+
+	/* Falls keine Lösung, dann hören wir auf! :-D */
+	if(sol == NULL)
+		return SCIP_OKAY;
+
+	assert(sol != NULL);
 
 	int nwk = graph->nwahlkreise;
 	assert(nwk > 0);
-
-	*result = SCIP_DIDNOTFIND;
 
 	std::set<std::set<GRAPHNODE*> > setset = getsubtrees(scip, sol, graph);
 
@@ -344,19 +354,11 @@ SCIP_DECL_CONSTRANS(ConshdlrSubtree::scip_trans)
  */
 SCIP_DECL_CONSSEPALP(ConshdlrSubtree::scip_sepalp)
 {
-	// TODO Aufruf richtig machen??
+	ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>( SCIPgetObjProbData(scip)) ;
+	GRAPH* graph = ProbData->getGraph();
 
-	for(int i = 0; i < nusefulconss; i++)
-	{
-		ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>( SCIPgetObjProbData(scip)) ;
-		GRAPH* graph = ProbData->getGraph();
-//		GRAPH* graph;
-//		SCIP_ConsData* consdata = SCIPconsGetData(conss[i]);
-//		graph = consdata->G;
-
-		assert(graph != NULL);
-		SCIP_CALL( sepaSubtree(scip, conshdlr, graph, NULL, result) );
-	}
+	assert(graph != NULL);
+	SCIP_CALL( sepaSubtree(scip, conshdlr, graph, NULL, result) );
 
 	return SCIP_OKAY;
 }
@@ -383,19 +385,14 @@ SCIP_DECL_CONSSEPALP(ConshdlrSubtree::scip_sepalp)
  */
 SCIP_DECL_CONSSEPASOL(ConshdlrSubtree::scip_sepasol)
 {
-	// TODO Aufruf richtig machen?!
-	for(int i = 0; i < nusefulconss; i++)
-	{
+	ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
 
-		ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
-		GRAPH* graph = ProbData->getGraph();
-//		GRAPH* graph;
-//		SCIP_ConsData* consdata = SCIPconsGetData(conss[i]);
-//		graph = consdata->G;
+	GRAPH* graph = ProbData->getGraph();
+	assert(graph != NULL);
+	assert(sol != NULL);
 
-		assert(graph != 0);
-		SCIP_CALL( sepaSubtree(scip, conshdlr, graph, sol, result) );
-	}
+	SCIP_CALL( sepaSubtree(scip, conshdlr, graph, sol, result) );
+
 	return SCIP_OKAY;
 }
 
