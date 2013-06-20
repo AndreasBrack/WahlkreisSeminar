@@ -5,7 +5,7 @@
  *      Author: andreas
  */
 
-#define SCIP_DEBUG
+// #define SCIP_DEBUG
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
 
 #include <cassert>
@@ -35,7 +35,6 @@ SCIP_Bool findSubtree(
 		SCIP_SOL*          sol                 /**< proposed solution */
 )
 {
-	SCIPdebugMessage("beginne findSubtree\n");
 	GRAPHNODE* adjnode;
 	GRAPHNODE* first_node;
 	int nnodes;
@@ -50,9 +49,13 @@ SCIP_Bool findSubtree(
 	assert(graph != NULL);
 
 	if(sol == NULL)
+	{
+		SCIPdebugMessage("findSubtrees: LP - Aufruf\n");
 		return FALSE;
 
-	assert(sol != NULL);
+	}
+	else
+		SCIPdebugMessage("findSubtrees: Sol - Aufruf\n");
 
 	/* Folgendes Startet eine Breitensuche: */
 
@@ -89,34 +92,38 @@ SCIP_Bool findSubtree(
 			}
 		}
 		/* falls nicht gefunden exit */
-		assert(wknr != -1);
 
-		/* ausgehende Kanten im richtigen Wahlkreis verfolgen */
-		/* dazu iteriere durch alle Kanten */
-		for(ckante = 0; ckante < graph->nedges; ckante++){
+		/* Falls der Knoten schon mindestens halb verbunden ist, suchen wir weiter.
+		 * Ansonsten ist der Knoten "isoliert" und wir vernachlässigen ihn.
+		 * */
+		if(wknr != -1)
+		{
+			/* ausgehende Kanten im richtigen Wahlkreis verfolgen */
+			/* dazu iteriere durch alle Kanten */
+			for(ckante = 0; ckante < graph->nedges; ckante++){
 
-			/* Knoten enthalten und Kante in Lsg? */
-			if( (graph->edges[ckante].adjac->id == first_node->id /*|| graph->edges[ckante].back->adjac->id == first_node.id */) &&
-					SCIPisGT(scip, SCIPgetSolVal(scip, sol, graph->edges[ckante].var_v[wknr]), 0.5))
-			{
-				adjnode = graph->edges[ckante].back->adjac;
+				/* Knoten enthalten und Kante in Lsg? */
+				if( (graph->edges[ckante].adjac->id == first_node->id /*|| graph->edges[ckante].back->adjac->id == first_node.id */) &&
+						SCIPisGT(scip, SCIPgetSolVal(scip, sol, graph->edges[ckante].var_v[wknr]), 0.5))
+				{
+					adjnode = graph->edges[ckante].back->adjac;
 
-				/* Falls wir den Knoten schon abgehandelt haben, continue mit nächster Kante*/
-				std::set<GRAPHNODE*>::iterator ittmp1 = set_nodes.find( adjnode );
-				if( ittmp1 != set_nodes.end() )
-					continue;
+					/* Falls wir den Knoten schon abgehandelt haben, continue mit nächster Kante*/
+					std::set<GRAPHNODE*>::iterator ittmp1 = set_nodes.find( adjnode );
+					if( ittmp1 != set_nodes.end() )
+						continue;
 
-				/* sonst suche Knoten in der aktuell gefundenen Menge */
-				std::set<GRAPHNODE*>::iterator ittmp2 = aktnodes.find( adjnode );
-				/* falls drin, haben wir einen Kreis */
-				if(ittmp2 != aktnodes.end())
-					return TRUE;
+					/* sonst suche Knoten in der aktuell gefundenen Menge */
+					std::set<GRAPHNODE*>::iterator ittmp2 = aktnodes.find( adjnode );
+					/* falls drin, haben wir einen Kreis */
+					if(ittmp2 != aktnodes.end())
+						return TRUE;
 
-				/* ansonsten fügen wir den Knoten zur aktuellen Menge hinzu */
-				aktnodes.insert( adjnode );
+					/* ansonsten fügen wir den Knoten zur aktuellen Menge hinzu */
+					aktnodes.insert( adjnode );
+				}
 			}
 		}
-
 		/* in diesem Knoten sind jetzt alle Kanten abgearbeitet. Ab nun wird er vernachlässigt */
 		set_nodes.erase( first_node );
 		aktnodes.erase( first_node );
@@ -148,10 +155,12 @@ std::set<std::set<GRAPHNODE*> > getsubtrees(
 	assert(graph != NULL);
 
 	if(sol == NULL)
-		return FALSE;
-
-	assert(sol != NULL);
-
+	{
+		SCIPdebugMessage("getSubtrees: LP - Aufruf. beendet.\n");
+		return setset;
+	}
+	else
+		SCIPdebugMessage("getSubtrees: Sol - Aufruf\n");
 
 	/* Folgendes Startet eine Breitensuche: */
 
@@ -193,44 +202,38 @@ std::set<std::set<GRAPHNODE*> > getsubtrees(
 				break;
 			}
 		}
-		assert(wknr != -1);
-		/* falls nicht gefunden exit */
-		if(wknr == -1)
+		if(wknr != -1)
 		{
-			SCIPdebugMessage("Fehler im Subtree finden Wahlkreis = -1");
-			exit(-1);
-		}
+			/* ausgehende Kanten im richtigen Wahlkreis verfolgen */
+			/* dazu iteriere durch alle Kanten */
+			for(ckante = 0; ckante < graph->nedges; ckante++){
 
-		/* ausgehende Kanten im richtigen Wahlkreis verfolgen */
-		/* dazu iteriere durch alle Kanten */
-		for(ckante = 0; ckante < graph->nedges; ckante++){
-
-			/* Knoten enthalten und Kante in Lsg? */
-			if( (graph->edges[ckante].adjac->id == first_node->id /*|| graph->edges[ckante].back->adjac->id == first_node.id */) &&
-					SCIPisGT(scip, SCIPgetSolVal(scip, sol, graph->edges[ckante].var_v[wknr]), 0.5))
-			{
-				adjnode = graph->edges[ckante].back->adjac;
-
-				/* Falls wir den Knoten schon abgehandelt haben, continue mit nächster Kante*/
-				std::set<GRAPHNODE*>::iterator ittmp1 = set_nodes.find( adjnode );
-				if( ittmp1 != set_nodes.end() )
-					continue;
-
-				/* sonst suche Knoten in der aktuell gefundenen Menge */
-				std::set<GRAPHNODE*>::iterator ittmp2 = aktnodes.find( adjnode );
-				/* falls drin, haben wir einen Kreis */
-				if(ittmp2 != aktnodes.end())
+				/* Knoten enthalten und Kante in Lsg? */
+				if( (graph->edges[ckante].adjac->id == first_node->id /*|| graph->edges[ckante].back->adjac->id == first_node.id */) &&
+						SCIPisGT(scip, SCIPgetSolVal(scip, sol, graph->edges[ckante].var_v[wknr]), 0.5))
 				{
-					/* zur Menge hinzufügen */
-					setset.insert( circle );
-				}
+					adjnode = graph->edges[ckante].back->adjac;
 
-				/* ansonsten fügen wir den Knoten zur aktuellen Menge hinzu */
-				aktnodes.insert( adjnode );
-				circle.insert( adjnode );
+					/* Falls wir den Knoten schon abgehandelt haben, continue mit nächster Kante*/
+					std::set<GRAPHNODE*>::iterator ittmp1 = set_nodes.find( adjnode );
+					if( ittmp1 != set_nodes.end() )
+						continue;
+
+					/* sonst suche Knoten in der aktuell gefundenen Menge */
+					std::set<GRAPHNODE*>::iterator ittmp2 = aktnodes.find( adjnode );
+					/* falls drin, haben wir einen Kreis */
+					if(ittmp2 != aktnodes.end())
+					{
+						/* zur Menge hinzufügen */
+						setset.insert( circle );
+					}
+
+					/* ansonsten fügen wir den Knoten zur aktuellen Menge hinzu */
+					aktnodes.insert( adjnode );
+					circle.insert( adjnode );
+				}
 			}
 		}
-
 		/* in diesem Knoten sind jetzt alle Kanten abgearbeitet. Ab nun wird er vernachlässigt */
 		set_nodes.erase( first_node );
 		aktnodes.erase( first_node );
@@ -254,16 +257,30 @@ SCIP_RETCODE sepaSubtree(
 	assert(result != NULL);
 	assert(graph != NULL);
 
-	/* Falls keine Lösung, dann hören wir auf! :-D */
 	if(sol == NULL)
+	{
+		SCIPdebugMessage("sepa Subtree: LP - Aufruf. beende. \n");
 		return SCIP_OKAY;
+	}
+	else
+		SCIPdebugMessage("sepa Subtree: Sol - Aufruf\n");
 
-	assert(sol != NULL);
+	/* Falls es keinen Teilbaum gibt, beenden */
+	if( !findSubtree(scip, graph, sol) )
+	{
+		SCIPdebugMessage("Kein Teilbaum entdeckt");
+		return SCIP_OKAY;
+	}
 
 	int nwk = graph->nwahlkreise;
 	assert(nwk > 0);
 
 	std::set<std::set<GRAPHNODE*> > setset = getsubtrees(scip, sol, graph);
+	if(setset.empty())
+		SCIPdebugMessage("Keine Kreise in sepaSubtree\n");
+	else
+		SCIPdebugMessage("Kreise gefunden.\n");
+
 
 	// für alle Kreise fügen wir eine neue Row hinzu.
 	for(std::set<std::set<GRAPHNODE*> >::iterator it = setset.begin(); it != setset.end(); it++)
@@ -288,6 +305,11 @@ SCIP_RETCODE sepaSubtree(
 			{
 				SCIP_CALL( SCIPaddCut(scip, sol, row, FALSE) );
 				*result = SCIP_SEPARATED;
+				SCIPdebugMessage("Neuer Cut");
+			}
+			else
+			{
+				SCIPdebugMessage("Cut ineffizient\n");
 			}
 			SCIP_CALL( SCIPreleaseRow(scip, &row) );
 		}
@@ -389,7 +411,6 @@ SCIP_DECL_CONSSEPASOL(ConshdlrSubtree::scip_sepasol)
 
 	GRAPH* graph = ProbData->getGraph();
 	assert(graph != NULL);
-	assert(sol != NULL);
 
 	SCIP_CALL( sepaSubtree(scip, conshdlr, graph, sol, result) );
 
@@ -431,25 +452,18 @@ SCIP_DECL_CONSENFOLP(ConshdlrSubtree::scip_enfolp)
 {
 	*result = SCIP_FEASIBLE;
 
-	for( int i = 0; i < nconss; ++i )
-	{
-		ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
-		GRAPH* G = ProbData->getGraph();
+	ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
+	GRAPH* G = ProbData->getGraph();
 
-//		SCIP_CONSDATA* consdata;
-//		GRAPH* G;
-		SCIP_Bool found;
-//		consdata = SCIPconsGetData(conss[i]);
-//		assert(consdata != NULL);
-//		G = consdata->G;
-		assert(G != NULL);
+	SCIP_Bool found;
 
-		found = findSubtree(scip, G, NULL);
+	assert(G != NULL);
 
-		// if a subtree was found, we generate a cut constraint saying that there must be at least two outgoing edges
-		if( found )
-			*result = SCIP_INFEASIBLE;
-	}
+	found = findSubtree(scip, G, NULL);
+
+	// if a subtree was found, we generate a cut constraint saying that there must be at least two outgoing edges
+	if( found )
+		*result = SCIP_INFEASIBLE;
 
 	return SCIP_OKAY;
 }
@@ -488,26 +502,17 @@ SCIP_DECL_CONSENFOPS(ConshdlrSubtree::scip_enfops)
 {
 	*result = SCIP_FEASIBLE;
 
-	for( int i = 0; i < nconss; ++i )
-	{
+	ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
+	GRAPH* G = ProbData->getGraph();
 
-		ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
-		GRAPH* G = ProbData->getGraph();
+	SCIP_Bool found;
 
-//		SCIP_CONSDATA* consdata;
-//		Graph* G;
-		SCIP_Bool found;
+	assert(G != NULL);
 
-//		consdata = SCIPconsGetData(conss[i]);
-//		assert(consdata != NULL);
-//		G = consdata->G;
-		assert(G != NULL);
-
-		// if a subtree is found, the solution must be infeasible
-		found = findSubtree(scip, G, NULL);
-		if( found )
-			*result = SCIP_INFEASIBLE;
-	}
+	// if a subtree is found, the solution must be infeasible
+	found = findSubtree(scip, G, NULL);
+	if( found )
+		*result = SCIP_INFEASIBLE;
 
 	return SCIP_OKAY;
 }
@@ -537,30 +542,23 @@ SCIP_DECL_CONSCHECK(ConshdlrSubtree::scip_check)
 {
 	*result = SCIP_FEASIBLE;
 
-	for( int i = 0; i < nconss; ++i )
+	SCIP_Bool found;
+
+	ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>( SCIPgetObjProbData(scip) );
+	GRAPH* G = ProbData->getGraph();
+
+
+	assert(G != NULL);
+
+	// if a subtree is found, the solution must be infeasible
+	found = findSubtree(scip, G, sol);
+	if( found )
 	{
-//		SCIP_CONSDATA* consdata;
-//		GRAPH* G;
-		SCIP_Bool found;
-
-		ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>( SCIPgetObjProbData(scip) );
-		GRAPH* G = ProbData->getGraph();
-
-//		consdata = SCIPconsGetData(conss[i]);
-//		assert(consdata != NULL);
-//		G = consdata->G;
-		assert(G != NULL);
-
-		// if a subtree is found, the solution must be infeasible
-		found = findSubtree(scip, G, sol);
-		if( found )
+		*result = SCIP_INFEASIBLE;
+		if( printreason )
 		{
-			*result = SCIP_INFEASIBLE;
-			if( printreason )
-			{
-				SCIP_CALL( SCIPprintCons(scip, conss[i], NULL) );
-				SCIPinfoMessage(scip, NULL, "violation: B has a subtree\n");
-			}
+			//			SCIP_CALL( SCIPprintCons(scip, conss[i], NULL) );
+			SCIPinfoMessage(scip, NULL, "violation: B has a subtree\n");
 		}
 	}
 
@@ -643,13 +641,6 @@ SCIP_DECL_CONSLOCK(ConshdlrSubtree::scip_lock)
 	ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
 	GRAPH* G = ProbData->getGraph();
 
-//	SCIP_CONSDATA* consdata;
-//	GRAPH* G;
-//
-//	consdata = SCIPconsGetData(cons);
-//	assert(consdata != NULL);
-//
-//	G = consdata->G;
 	assert(G != NULL);
 	/* TODO  add some locks.*/
 	//   for( int i = 0; i < g->nedges; ++i )
