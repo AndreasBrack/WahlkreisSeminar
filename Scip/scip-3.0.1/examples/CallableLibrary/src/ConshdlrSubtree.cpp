@@ -128,6 +128,7 @@ std::set<std::set<GRAPHNODE*> > getsubtrees(
 		GRAPH* graph
 )
 {
+	SCIPdebugMessage("beginne getsubtrees\n");
 	std::set<std::set<GRAPHNODE*> > setset;
 
 	GRAPHNODE* adjnode;
@@ -244,6 +245,8 @@ SCIP_RETCODE sepaSubtree(
 		SCIP_RESULT*       result              /**< pointer to store the result of the separation call */
 )
 {
+	SCIPdebugMessage("beginne sepaSubtree\n");
+
 	assert(result != NULL);
 	assert(graph != NULL);
 	//assert(sol != NULL);
@@ -293,6 +296,7 @@ SCIP_RETCODE sepaSubtree(
  */
 SCIP_DECL_CONSDELETE(ConshdlrSubtree::scip_delete)
 {
+	SCIPdebugMessage("beginne scip_delete\n");
 	assert(consdata != NULL);
 
 	SCIPfreeMemory(scip, consdata);
@@ -304,6 +308,8 @@ SCIP_DECL_CONSDELETE(ConshdlrSubtree::scip_delete)
 /** transforms constraint data into data belonging to the transformed problem */
 SCIP_DECL_CONSTRANS(ConshdlrSubtree::scip_trans)
 {
+	SCIPdebugMessage("beginne scip_trans\n");
+
 	SCIP_CONSDATA* sourcedata = NULL;
 	SCIP_CONSDATA* targetdata = NULL;
 
@@ -344,6 +350,8 @@ SCIP_DECL_CONSTRANS(ConshdlrSubtree::scip_trans)
  */
 SCIP_DECL_CONSSEPALP(ConshdlrSubtree::scip_sepalp)
 {
+	SCIPdebugMessage("beginne scip_sepalp\n");
+
 	// TODO Aufruf richtig machen??
 
 	for(int i = 0; i < nusefulconss; i++)
@@ -383,6 +391,8 @@ SCIP_DECL_CONSSEPALP(ConshdlrSubtree::scip_sepalp)
  */
 SCIP_DECL_CONSSEPASOL(ConshdlrSubtree::scip_sepasol)
 {
+	SCIPdebugMessage("beginne scip_sepasol\n");
+
 	// TODO Aufruf richtig machen?!
 	for(int i = 0; i < nusefulconss; i++)
 	{
@@ -432,6 +442,8 @@ SCIP_DECL_CONSSEPASOL(ConshdlrSubtree::scip_sepasol)
  */
 SCIP_DECL_CONSENFOLP(ConshdlrSubtree::scip_enfolp)
 {
+	SCIPdebugMessage("beginne scip_enfolp\n");
+
 	*result = SCIP_FEASIBLE;
 
 	for( int i = 0; i < nconss; ++i )
@@ -489,6 +501,8 @@ SCIP_DECL_CONSENFOLP(ConshdlrSubtree::scip_enfolp)
  */
 SCIP_DECL_CONSENFOPS(ConshdlrSubtree::scip_enfops)
 {
+	SCIPdebugMessage("beginne scip_enfops\n");
+
 	*result = SCIP_FEASIBLE;
 
 	for( int i = 0; i < nconss; ++i )
@@ -538,6 +552,8 @@ SCIP_DECL_CONSENFOPS(ConshdlrSubtree::scip_enfops)
  */
 SCIP_DECL_CONSCHECK(ConshdlrSubtree::scip_check)
 {
+	SCIPdebugMessage("beginne scip_check\n");
+
 	*result = SCIP_FEASIBLE;
 
 	for( int i = 0; i < nconss; ++i )
@@ -586,6 +602,8 @@ SCIP_DECL_CONSCHECK(ConshdlrSubtree::scip_check)
  */
 SCIP_DECL_CONSPROP(ConshdlrSubtree::scip_prop)
 {
+
+	SCIPdebugMessage("beginne scip_prop\n");
 	assert(result != NULL);
 	*result = SCIP_DIDNOTRUN;
 	return SCIP_OKAY;
@@ -643,6 +661,8 @@ SCIP_DECL_CONSPROP(ConshdlrSubtree::scip_prop)
 SCIP_DECL_CONSLOCK(ConshdlrSubtree::scip_lock)
 {
 
+	SCIPdebugMessage("beginne scip_lock\n");
+
 	ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
 	GRAPH* G = ProbData->getGraph();
 
@@ -676,6 +696,7 @@ SCIP_DECL_CONSLOCK(ConshdlrSubtree::scip_lock)
  */
 SCIP_DECL_CONSDELVARS(ConshdlrSubtree::scip_delvars)
 {
+	SCIPdebugMessage("beginne scip_delvars\n");
 	return SCIP_OKAY;
 }
 
@@ -686,6 +707,7 @@ SCIP_DECL_CONSDELVARS(ConshdlrSubtree::scip_delvars)
  */
 SCIP_DECL_CONSPRINT(ConshdlrSubtree::scip_print)
 {
+	SCIPdebugMessage("beginne scip_print\n");
 	SCIP_CONSDATA* consdata;
 	GRAPH* g;
 
@@ -703,6 +725,7 @@ SCIP_DECL_CONSPRINT(ConshdlrSubtree::scip_print)
 /** clone method which will be used to copy a objective plugin */
 SCIP_DECL_CONSHDLRCLONE(ObjProbCloneable* ConshdlrSubtree::clone)
 {
+	SCIPdebugMessage("beginne clone\n");
 	*valid = true;
 	return new ConshdlrSubtree(scip);
 }
@@ -714,6 +737,8 @@ SCIP_DECL_CONSHDLRCLONE(ObjProbCloneable* ConshdlrSubtree::clone)
  */
 SCIP_DECL_CONSCOPY(ConshdlrSubtree::scip_copy)
 {
+
+	SCIPdebugMessage("beginne scip_copy\n");
 	SCIP_CONSHDLR* conshdlr = NULL;
 	SCIP_CONSDATA* consdata = NULL;
 
@@ -764,6 +789,7 @@ SCIP_RETCODE tree::SCIPcreateConsSubtree(
 		SCIP_Bool             removable           /**< should the constraint be removed from the LP due to aging or cleanup? */
 )
 {
+	SCIPdebugMessage("beginne SCIPcreateConsSubtree\n");
 	SCIP_CONSHDLR* conshdlr = NULL;
 	SCIP_CONSDATA* consdata = NULL;
 
