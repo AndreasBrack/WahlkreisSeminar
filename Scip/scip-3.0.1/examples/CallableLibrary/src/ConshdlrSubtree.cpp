@@ -28,6 +28,38 @@ struct SCIP_ConsData
 	Graph* G;
 };
 
+static
+SCIP_RETCODE printKreis(
+		SCIP* scip,
+		GRAPH* graph,
+		set<GRAPHNODE*> set,
+		SCIP_SOL* sol
+		)
+{
+	std::cout << endl << "Drucke einen Kreis" << endl << "Knotenmenge: Ids:" << endl;
+	for(std::set<GRAPHNODE*>::iterator it = set.begin(); it != set.end(); ++it )
+	{
+		cout << (*it)->id << endl;
+	}
+
+	cout << endl << "Kanten: Id <-> Id, Value:" << endl;
+	for(int i = 0; i < graph->nedges; i++)
+	{
+		GRAPHEDGE* e = &(graph->edges[i]);
+		if(set.find(e->adjac) != set.end() && set.find(e->back->adjac) != set.end())
+		{
+			SCIP_Real tmp = 0;
+			for(int wk = 0; wk < graph->nwahlkreise; wk++)
+			{
+				tmp = SCIPisGT(scip, SCIPgetSolVal(scip, sol, e->var_v[wk]), tmp) ? SCIPgetSolVal(scip, sol, e->var_v[wk]) : tmp;
+			}
+			cout << e->adjac->id << " <-> " << e->back->adjac->id << ", " << tmp << endl;
+		}
+
+	}
+	return SCIP_OKAY;
+}
+
 /* checks whether proposed solution contains a subtree */
 static
 SCIP_Bool findSubtree(
@@ -51,7 +83,6 @@ SCIP_Bool findSubtree(
 	if(sol == NULL)
 	{
 		SCIPdebugMessage("LP AUFRUF!!!");
-		return FALSE;
 	}
 	else
 		SCIPdebugMessage("findSubtrees: Sol - Aufruf\n");
@@ -86,7 +117,7 @@ SCIP_Bool findSubtree(
 		wknr = -1;
 		for( i = 0; i < nwk; i++)
 		{
-			if( SCIPisGT(scip, SCIPgetSolVal(scip, sol, first_node->var_v[i]), 0.5) ){
+			if( SCIPisEQ(scip, SCIPgetSolVal(scip, sol, first_node->var_v[i]), 1.0) ){
 				wknr = i;
 				break;
 			}
@@ -107,7 +138,7 @@ SCIP_Bool findSubtree(
 				/* Knoten enthalten und Kante in Lsg? */
 				if( (graph->edges[ckante].adjac->id == first_node->id ||
 						graph->edges[ckante].back->adjac->id == first_node->id ) &&
-						SCIPisGT(scip, SCIPgetSolVal(scip, sol, graph->edges[ckante].var_v[wknr]), 0.5))
+						SCIPisEQ(scip, SCIPgetSolVal(scip, sol, graph->edges[ckante].var_v[wknr]), 1.0))
 				{
 					adjnode = graph->edges[ckante].back->adjac;
 
@@ -164,9 +195,7 @@ std::set<std::set<GRAPHNODE*> > getsubtrees(
 	assert(graph != NULL);
 
 	if(sol == NULL)
-	{
-		return setset;
-	}
+		SCIPdebugMessage("getSubtrees: LP - Aufruf\n");
 	else
 		SCIPdebugMessage("getSubtrees: Sol - Aufruf\n");
 
@@ -203,7 +232,7 @@ std::set<std::set<GRAPHNODE*> > getsubtrees(
 		wknr = -1;
 		for( i = 0; i < nwk; i++)
 		{
-			if( SCIPisGT(scip, SCIPgetSolVal(scip, sol, first_node->var_v[i]), 0.5) ){
+			if( SCIPisEQ(scip, SCIPgetSolVal(scip, sol, first_node->var_v[i]), 1.0) ){
 				wknr = i;
 				break;
 			}
@@ -216,7 +245,7 @@ std::set<std::set<GRAPHNODE*> > getsubtrees(
 
 				/* Knoten enthalten und Kante in Lsg? */
 				if( (graph->edges[ckante].adjac->id == first_node->id || graph->edges[ckante].back->adjac->id == first_node->id ) &&
-						SCIPisGT(scip, SCIPgetSolVal(scip, sol, graph->edges[ckante].var_v[wknr]), 0.5))
+						SCIPisEQ(scip, SCIPgetSolVal(scip, sol, graph->edges[ckante].var_v[wknr]), 1.0))
 				{
 					adjnode = graph->edges[ckante].back->adjac;
 
@@ -246,6 +275,11 @@ std::set<std::set<GRAPHNODE*> > getsubtrees(
 	}
 
 	SCIPdebugMessage("%d Kreise gefunden\n", (int) setset.size());
+
+#ifdef SCIP_DEBUG
+	for(std::set<std::set<GRAPHNODE*> >::iterator it = setset.begin(); it != setset.end(); ++it)
+		printKreis(scip, graph, *it, sol);
+#endif
 	return setset;
 }
 
@@ -266,7 +300,7 @@ SCIP_RETCODE sepaSubtree(
 
 	if(sol == NULL)
 	{
-		return SCIP_OKAY;
+		SCIPdebugMessage("sepa Subtree: LP - Aufruf\n");
 	}
 	else
 		SCIPdebugMessage("sepa Subtree: Sol - Aufruf\n");
@@ -277,11 +311,14 @@ SCIP_RETCODE sepaSubtree(
 		SCIPdebugMessage("Kein Teilbaum entdeckt");
 		return SCIP_OKAY;
 	}
+	SCIPdebugMessage("Teilbaum entdeckt");
+
 
 	int nwk = graph->nwahlkreise;
 	assert(nwk > 0);
 
 	std::set<std::set<GRAPHNODE*> > setset = getsubtrees(scip, sol, graph);
+	SCIPdebugMessage("%d Bäume sollen separiert werden", (int) setset.size());
 
 	// für alle Kreise fügen wir eine neue Row hinzu.
 	for(std::set<std::set<GRAPHNODE*> >::iterator it = setset.begin(); it != setset.end(); it++)
@@ -377,6 +414,7 @@ SCIP_DECL_CONSTRANS(ConshdlrSubtree::scip_trans)
  */
 SCIP_DECL_CONSSEPALP(ConshdlrSubtree::scip_sepalp)
 {
+	*result = SCIP_DIDNOTRUN;
 //	ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>( SCIPgetObjProbData(scip)) ;
 //	GRAPH* graph = ProbData->getGraph();
 //
@@ -408,6 +446,7 @@ SCIP_DECL_CONSSEPALP(ConshdlrSubtree::scip_sepalp)
  */
 SCIP_DECL_CONSSEPASOL(ConshdlrSubtree::scip_sepasol)
 {
+	SCIPdebugMessage("ConshdlrSubtree::scip_sepasol\n");
 	ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
 
 	GRAPH* graph = ProbData->getGraph();
@@ -451,22 +490,23 @@ SCIP_DECL_CONSSEPASOL(ConshdlrSubtree::scip_sepasol)
  */
 SCIP_DECL_CONSENFOLP(ConshdlrSubtree::scip_enfolp)
 {
-	SCIPdebugMessage("enfolp\n");
+//	SCIPdebugMessage("enfolp\n");
 	*result = SCIP_FEASIBLE;
 
-//	ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
-//	GRAPH* G = ProbData->getGraph();
-//
-//	SCIP_Bool found;
-//
-//	assert(G != NULL);
-//
-//	found = findSubtree(scip, G, NULL);
-//
-//	// if a subtree was found, we generate a cut constraint saying that there must be at least two outgoing edges
-//	if( found )
-//		*result = SCIP_INFEASIBLE;
-//
+	ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
+	GRAPH* G = ProbData->getGraph();
+
+	SCIP_Bool found;
+
+	assert(G != NULL);
+
+	found = findSubtree(scip, G, NULL);
+
+	// if a subtree was found, we generate a cut constraint saying that there must be at least two outgoing edges
+	if( found )
+	SCIP_CALL( sepaSubtree(scip, conshdlr, G, NULL, result) );
+		*result = SCIP_INFEASIBLE;
+
 	return SCIP_OKAY;
 }
 
@@ -515,7 +555,11 @@ SCIP_DECL_CONSENFOPS(ConshdlrSubtree::scip_enfops)
 	// if a subtree is found, the solution must be infeasible
 	found = findSubtree(scip, G, NULL);
 	if( found )
+	{
+		SCIP_CALL( sepaSubtree(scip, conshdlr, G, NULL, result) );
 		*result = SCIP_INFEASIBLE;
+	}
+
 
 	return SCIP_OKAY;
 }
@@ -562,7 +606,6 @@ SCIP_DECL_CONSCHECK(ConshdlrSubtree::scip_check)
 		*result = SCIP_INFEASIBLE;
 		if( printreason )
 		{
-			//			SCIP_CALL( SCIPprintCons(scip, conss[i], NULL) );
 			SCIPinfoMessage(scip, NULL, "violation: B has a subtree\n");
 		}
 	}
@@ -744,7 +787,7 @@ ReaderWP.cpp:(.text+0x5fc4): undefined reference to `tree::SCIPcreateConsSubtree
 SCIP_RETCODE tree::SCIPcreateConsSubtree(
 		SCIP*                 scip,               /**< SCIP data structure */
 		SCIP_CONS**           cons,               /**< pointer to hold the created constraint */
-		const char*          name,               /**< name of constraint */
+		const char*           name,               /**< name of constraint */
 		GRAPH*				  graph,			  /**< the underlying graph structure */
 		SCIP_Bool             initial,            /**< should the LP relaxation of constraint be in the initial LP? */
 		SCIP_Bool             separate,           /**< should the constraint be separated during LP processing? */
