@@ -31,8 +31,8 @@ public:
       SCIP* scip
       )
       : ObjConshdlr(scip, "subtree", "Wahlkreisproblem subtree elimination constraints",
-         1000000, -2000000, -2000000, 1, -1, 1, 0,
-         FALSE, FALSE, FALSE, TRUE, SCIP_PROPTIMING_BEFORELP)
+         1000000, 0, -2000000, 1, -1, 1, 0,
+         FALSE, FALSE, FALSE, TRUE, SCIP_PROPTIMING_AFTERLPNODE)
    {
    }
 
