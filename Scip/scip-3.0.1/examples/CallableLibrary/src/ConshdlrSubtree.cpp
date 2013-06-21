@@ -13,6 +13,7 @@
 #include <iostream>
 #include "ConshdlrSubtree.h"
 #include "ProbDataWP.h"
+#include <stdio.h>
 
 #include "objscip/objscip.h"
 #include "scip/scip.h"
@@ -221,46 +222,46 @@ SCIP_Bool findSubtree(
 	SCIPfreeBufferArray(sub_scip, &zleqvvars);
 	SCIPfreeBufferArray(sub_scip, &zleqvvals);
 
-	// ############################################################################################################################
-	// # v(i) + v(j) <= 1 + z(i,j) Constraint
-	// # <=> -inf <= v(i) + v(j) - z(i,j) <= 1
-	// ############################################################################################################################
+//	// ############################################################################################################################
+//	// # v(i) + v(j) <= 1 + z(i,j) Constraint
+//	// # <=> -inf <= v(i) + v(j) - z(i,j) <= 1
+//	// ############################################################################################################################
 	SCIP_VAR** vars;
-	SCIP_CALL( SCIPallocBufferArray(sub_scip, &vars, 3) );
-
+//	SCIP_CALL( SCIPallocBufferArray(sub_scip, &vars, 3) );
+//
 	SCIP_Real* vals;
-	SCIP_CALL( SCIPallocBufferArray(sub_scip, &vals, 3) );
-	vals[0] = 1;
-	vals[1] = 1;
-	vals[2] = -1;
-
-	for (  int e_it = 0 ; e_it < graph->nedges ; ++e_it)
-	{
-
-		SCIP_Cons* cons;
-		stringstream name;
-
-		name << "v_v_leq_1_z_" << graph->edges[e_it].back->adjac->stadtid << "_"
-						   << graph->edges[e_it].adjac->stadtid;
-
-		vars[0] = v_vars[ graph->edges[e_it].back->adjac->id ];
-		vars[1] = v_vars[ graph->edges[e_it].adjac->id ];
-		vars[2] = z_vars[ e_it ];
-
-
-		SCIP_CALL( SCIPcreateConsLinear(sub_scip, &cons,
-				name.str().c_str(),
-				3, vars, vals,
-				-SCIPinfinity(scip), 1,
-				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-		SCIP_CALL( SCIPaddCons(sub_scip, cons) );
-		SCIP_CALL( SCIPreleaseCons(sub_scip, &cons) );
-
-		name.str("");
-	}
-
-	SCIPfreeBufferArray(sub_scip, &vars);
-	SCIPfreeBufferArray(sub_scip, &vals);
+//	SCIP_CALL( SCIPallocBufferArray(sub_scip, &vals, 3) );
+//	vals[0] = 1;
+//	vals[1] = 1;
+//	vals[2] = -1;
+//
+//	for (  int e_it = 0 ; e_it < graph->nedges ; ++e_it)
+//	{
+//
+//		SCIP_Cons* cons;
+//		stringstream name;
+//
+//		name << "v_v_leq_1_z_" << graph->edges[e_it].back->adjac->stadtid << "_"
+//						   << graph->edges[e_it].adjac->stadtid;
+//
+//		vars[0] = v_vars[ graph->edges[e_it].back->adjac->id ];
+//		vars[1] = v_vars[ graph->edges[e_it].adjac->id ];
+//		vars[2] = z_vars[ e_it ];
+//
+//
+//		SCIP_CALL( SCIPcreateConsLinear(sub_scip, &cons,
+//				name.str().c_str(),
+//				3, vars, vals,
+//				-SCIPinfinity(scip), 1,
+//				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+//		SCIP_CALL( SCIPaddCons(sub_scip, cons) );
+//		SCIP_CALL( SCIPreleaseCons(sub_scip, &cons) );
+//
+//		name.str("");
+//	}
+//
+//	SCIPfreeBufferArray(sub_scip, &vars);
+//	SCIPfreeBufferArray(sub_scip, &vals);
 
 	// ############################################################################################################################
 	// # z(i,j) <= sum(w,x*(i,j,w) Constraint
@@ -360,22 +361,33 @@ SCIP_Bool findSubtree(
 
 	SCIPsetObjsense(sub_scip, SCIP_OBJSENSE_MAXIMIZE);
 
-	SCIPsetObjlimit(sub_scip, -1 + SCIPepsilon(sub_scip));
-	SCIPsetIntParam(sub_scip, "limits/solutions", 1);
+	//SCIPsetObjlimit(sub_scip, 0);
+	//SCIPsetIntParam(sub_scip, "limits/solutions", 1);
 
 	SCIPsolve(sub_scip);
 
 	SCIP_SOL* sub_sol = SCIPgetBestSol(sub_scip);
 
-	//std::cout << "zielfkt: " << SCIPgetPrimalbound(sub_scip) << std::endl;
+	std::cout << "zielfkt: " << SCIPgetPrimalbound(sub_scip) << std::endl;
 
 	//SCIPprintBestSol(sub_scip, NULL, false);
 
 	if ( SCIPisGT(sub_scip, SCIPgetPrimalbound(sub_scip) , -1))
 	{
+
 		SCIP_CALL( SCIPfree(&sub_scip) );
 		return true;
 	} else {
+		//SCIPprintSol(scip, sol, NULL, false );
+
+//		   FILE * pFile;
+//
+//		   pFile = fopen ("myfile.lp" , "r");
+
+		//SCIPprintBestSol(sub_scip, NULL, false);
+		//SCIP_CALL (SCIPprintOrigProblem(sub_scip, NULL, NULL , false ) );
+		//exit(-1);
+
 		SCIP_CALL( SCIPfree(&sub_scip) );
 		return false;
 	}
@@ -394,7 +406,7 @@ SCIP_RETCODE sepaSubtree(
 		SCIP_RESULT*       result              /**< pointer to store the result of the separation call */
 )
 {
-	SCIPdebugMessage("beginne sepaSubtree\n");
+	//SCIPdebugMessage("beginne sepaSubtree\n");
 
 	//assert(SCIPbufferGetNUsed(scip->set->buffer) == 0);
 
@@ -577,46 +589,46 @@ SCIP_RETCODE sepaSubtree(
 		SCIPfreeBufferArray(sub_scip, &zleqvvars);
 		SCIPfreeBufferArray(sub_scip, &zleqvvals);
 
-		// ############################################################################################################################
-		// # v(i) + v(j) <= 1 + z(i,j) Constraint
-		// # <=> -inf <= v(i) + v(j) - z(i,j) <= 1
-		// ############################################################################################################################
+//		// ############################################################################################################################
+//		// # v(i) + v(j) <= 1 + z(i,j) Constraint
+//		// # <=> -inf <= v(i) + v(j) - z(i,j) <= 1
+//		// ############################################################################################################################
 		SCIP_VAR** vars;
-		SCIP_CALL( SCIPallocBufferArray(sub_scip, &vars, 3) );
-
+//		SCIP_CALL( SCIPallocBufferArray(sub_scip, &vars, 3) );
+//
 		SCIP_Real* vals;
-		SCIP_CALL( SCIPallocBufferArray(sub_scip, &vals, 3) );
-		vals[0] = 1;
-		vals[1] = 1;
-		vals[2] = -1;
-
-		for (  int e_it = 0 ; e_it < graph->nedges ; ++e_it)
-		{
-
-			SCIP_Cons* cons;
-			stringstream name;
-
-			name << "v_v_leq_1_z_" << graph->edges[e_it].back->adjac->stadtid << "_"
-							   << graph->edges[e_it].adjac->stadtid;
-
-			vars[0] = v_vars[ graph->edges[e_it].back->adjac->id ];
-			vars[1] = v_vars[ graph->edges[e_it].adjac->id ];
-			vars[2] = z_vars[ e_it ];
-
-
-			SCIP_CALL( SCIPcreateConsLinear(sub_scip, &cons,
-					name.str().c_str(),
-					3, vars, vals,
-					-SCIPinfinity(scip), 1,
-					TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-			SCIP_CALL( SCIPaddCons(sub_scip, cons) );
-			SCIP_CALL( SCIPreleaseCons(sub_scip, &cons) );
-
-			name.str("");
-		}
-
-		SCIPfreeBufferArray(sub_scip, &vars);
-		SCIPfreeBufferArray(sub_scip, &vals);
+//		SCIP_CALL( SCIPallocBufferArray(sub_scip, &vals, 3) );
+//		vals[0] = 1;
+//		vals[1] = 1;
+//		vals[2] = -1;
+//
+//		for (  int e_it = 0 ; e_it < graph->nedges ; ++e_it)
+//		{
+//
+//			SCIP_Cons* cons;
+//			stringstream name;
+//
+//			name << "v_v_leq_1_z_" << graph->edges[e_it].back->adjac->stadtid << "_"
+//							   << graph->edges[e_it].adjac->stadtid;
+//
+//			vars[0] = v_vars[ graph->edges[e_it].back->adjac->id ];
+//			vars[1] = v_vars[ graph->edges[e_it].adjac->id ];
+//			vars[2] = z_vars[ e_it ];
+//
+//
+//			SCIP_CALL( SCIPcreateConsLinear(sub_scip, &cons,
+//					name.str().c_str(),
+//					3, vars, vals,
+//					-SCIPinfinity(scip), 1,
+//					TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+//			SCIP_CALL( SCIPaddCons(sub_scip, cons) );
+//			SCIP_CALL( SCIPreleaseCons(sub_scip, &cons) );
+//
+//			name.str("");
+//		}
+//
+//		SCIPfreeBufferArray(sub_scip, &vars);
+//		SCIPfreeBufferArray(sub_scip, &vals);
 
 		// ############################################################################################################################
 		// # z(i,j) <= sum(w,x*(i,j,w) Constraint
@@ -715,8 +727,8 @@ SCIP_RETCODE sepaSubtree(
 
 		SCIPsetObjsense(sub_scip, SCIP_OBJSENSE_MAXIMIZE);
 
-		SCIPsetObjlimit(sub_scip, -1 + SCIPepsilon(sub_scip));
-		SCIPsetIntParam(sub_scip, "limits/solutions", 1);
+		//SCIPsetObjlimit(sub_scip, 0);
+		//SCIPsetIntParam(sub_scip, "limits/solutions", 1);
 
 		SCIPsolve(sub_scip);
 
@@ -760,7 +772,7 @@ SCIP_RETCODE sepaSubtree(
 
 			if ( SCIPisCutEfficacious(scip, sol, row) )
 			{
-				SCIP_CALL( SCIPaddCut(scip, sol, row, TRUE) );
+				SCIP_CALL( SCIPaddCut(scip, sol, row, FALSE) );
 				*result = SCIP_SEPARATED;
 			}
 			SCIP_CALL( SCIPreleaseRow(scip, &row) );
@@ -815,7 +827,7 @@ SCIP_RETCODE sepaSubtree(
  */
 SCIP_DECL_CONSDELETE(ConshdlrSubtree::scip_delete)
 {
-	SCIPdebugMessage("beginne scip_delete\n");
+	//SCIPdebugMessage("beginne scip_delete\n");
 	assert(consdata != NULL);
 
 	SCIPfreeMemory(scip, consdata);
@@ -827,7 +839,7 @@ SCIP_DECL_CONSDELETE(ConshdlrSubtree::scip_delete)
 /** transforms constraint data into data belonging to the transformed problem */
 SCIP_DECL_CONSTRANS(ConshdlrSubtree::scip_trans)
 {
-	SCIPdebugMessage("beginne scip_trans\n");
+	//SCIPdebugMessage("beginne scip_trans\n");
 
 	SCIP_CONSDATA* sourcedata = NULL;
 	SCIP_CONSDATA* targetdata = NULL;
@@ -869,7 +881,7 @@ SCIP_DECL_CONSTRANS(ConshdlrSubtree::scip_trans)
  */
 SCIP_DECL_CONSSEPALP(ConshdlrSubtree::scip_sepalp)
 {
-	SCIPdebugMessage("beginne scip_sepalp\n");
+	//SCIPdebugMessage("beginne scip_sepalp\n");
 
 	// TODO Aufruf richtig machen??
 
@@ -910,7 +922,7 @@ SCIP_DECL_CONSSEPALP(ConshdlrSubtree::scip_sepalp)
  */
 SCIP_DECL_CONSSEPASOL(ConshdlrSubtree::scip_sepasol)
 {
-	SCIPdebugMessage("beginne scip_sepasol\n");
+	//SCIPdebugMessage("beginne scip_sepasol\n");
 
 	// TODO Aufruf richtig machen?!
 	for(int i = 0; i < nusefulconss; i++)
@@ -961,7 +973,7 @@ SCIP_DECL_CONSSEPASOL(ConshdlrSubtree::scip_sepasol)
  */
 SCIP_DECL_CONSENFOLP(ConshdlrSubtree::scip_enfolp)
 {
-	SCIPdebugMessage("beginne scip_enfolp\n");
+	//SCIPdebugMessage("beginne scip_enfolp\n");
 
 	*result = SCIP_FEASIBLE;
 
@@ -1020,7 +1032,7 @@ SCIP_DECL_CONSENFOLP(ConshdlrSubtree::scip_enfolp)
  */
 SCIP_DECL_CONSENFOPS(ConshdlrSubtree::scip_enfops)
 {
-	SCIPdebugMessage("beginne scip_enfops\n");
+	//SCIPdebugMessage("beginne scip_enfops\n");
 
 	*result = SCIP_FEASIBLE;
 
@@ -1071,7 +1083,7 @@ SCIP_DECL_CONSENFOPS(ConshdlrSubtree::scip_enfops)
  */
 SCIP_DECL_CONSCHECK(ConshdlrSubtree::scip_check)
 {
-	SCIPdebugMessage("beginne scip_check\n");
+	//SCIPdebugMessage("beginne scip_check\n");
 
 	*result = SCIP_FEASIBLE;
 
@@ -1122,7 +1134,7 @@ SCIP_DECL_CONSCHECK(ConshdlrSubtree::scip_check)
 SCIP_DECL_CONSPROP(ConshdlrSubtree::scip_prop)
 {
 
-	SCIPdebugMessage("beginne scip_prop\n");
+	//SCIPdebugMessage("beginne scip_prop\n");
 	assert(result != NULL);
 	*result = SCIP_DIDNOTRUN;
 	return SCIP_OKAY;
@@ -1180,7 +1192,7 @@ SCIP_DECL_CONSPROP(ConshdlrSubtree::scip_prop)
 SCIP_DECL_CONSLOCK(ConshdlrSubtree::scip_lock)
 {
 
-	SCIPdebugMessage("beginne scip_lock\n");
+	//SCIPdebugMessage("beginne scip_lock\n");
 
 	ProbDataWP* ProbData = dynamic_cast<ProbDataWP*>(SCIPgetObjProbData(scip));
 	GRAPH* G = ProbData->getGraph();
@@ -1215,7 +1227,7 @@ SCIP_DECL_CONSLOCK(ConshdlrSubtree::scip_lock)
  */
 SCIP_DECL_CONSDELVARS(ConshdlrSubtree::scip_delvars)
 {
-	SCIPdebugMessage("beginne scip_delvars\n");
+	//SCIPdebugMessage("beginne scip_delvars\n");
 	return SCIP_OKAY;
 }
 
@@ -1226,9 +1238,11 @@ SCIP_DECL_CONSDELVARS(ConshdlrSubtree::scip_delvars)
  */
 SCIP_DECL_CONSPRINT(ConshdlrSubtree::scip_print)
 {
-	SCIPdebugMessage("beginne scip_print\n");
+	//SCIPdebugMessage("beginne scip_print\n");
 	SCIP_CONSDATA* consdata;
 	GRAPH* g;
+
+	SCIPprintCons(scip, cons, NULL);
 
 	consdata = SCIPconsGetData(cons);
 	assert(consdata != NULL);
@@ -1244,7 +1258,7 @@ SCIP_DECL_CONSPRINT(ConshdlrSubtree::scip_print)
 /** clone method which will be used to copy a objective plugin */
 SCIP_DECL_CONSHDLRCLONE(ObjProbCloneable* ConshdlrSubtree::clone)
 {
-	SCIPdebugMessage("beginne clone\n");
+	//SCIPdebugMessage("beginne clone\n");
 	*valid = true;
 	return new ConshdlrSubtree(scip);
 }
@@ -1257,7 +1271,7 @@ SCIP_DECL_CONSHDLRCLONE(ObjProbCloneable* ConshdlrSubtree::clone)
 SCIP_DECL_CONSCOPY(ConshdlrSubtree::scip_copy)
 {
 
-	SCIPdebugMessage("beginne scip_copy\n");
+	//SCIPdebugMessage("beginne scip_copy\n");
 	SCIP_CONSHDLR* conshdlr = NULL;
 	SCIP_CONSDATA* consdata = NULL;
 
@@ -1308,7 +1322,7 @@ SCIP_RETCODE tree::SCIPcreateConsSubtree(
 		SCIP_Bool             removable           /**< should the constraint be removed from the LP due to aging or cleanup? */
 )
 {
-	SCIPdebugMessage("beginne SCIPcreateConsSubtree\n");
+	//SCIPdebugMessage("beginne SCIPcreateConsSubtree\n");
 	SCIP_CONSHDLR* conshdlr = NULL;
 	SCIP_CONSDATA* consdata = NULL;
 

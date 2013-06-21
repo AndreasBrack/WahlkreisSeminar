@@ -555,7 +555,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	stringstream varname;
 
 	varname << "a_max";
-	SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 0.25, FAK_1, SCIP_VARTYPE_CONTINUOUS,
+	SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 0.5, FAK_1, SCIP_VARTYPE_CONTINUOUS,
 		  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
 
 	/* add variable to SCIP */
