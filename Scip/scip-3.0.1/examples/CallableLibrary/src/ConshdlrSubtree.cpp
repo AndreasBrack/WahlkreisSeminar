@@ -42,8 +42,6 @@ SCIP_Bool findSubtree(
 	// return true falls es einen Subtree gibt
 	// return false falls es keinen Subtree gibt
 
-
-
 	SCIPdebugMessage("beginne findSubtree\n");
 
 
@@ -1309,7 +1307,7 @@ ReaderWP.cpp:(.text+0x5fc4): undefined reference to `tree::SCIPcreateConsSubtree
 SCIP_RETCODE tree::SCIPcreateConsSubtree(
 		SCIP*                 scip,               /**< SCIP data structure */
 		SCIP_CONS**           cons,               /**< pointer to hold the created constraint */
-		const char*          name,               /**< name of constraint */
+		const char*           name,               /**< name of constraint */
 		GRAPH*				  graph,			  /**< the underlying graph structure */
 		SCIP_Bool             initial,            /**< should the LP relaxation of constraint be in the initial LP? */
 		SCIP_Bool             separate,           /**< should the constraint be separated during LP processing? */
