@@ -27,6 +27,7 @@
 #include "ConshdlrSubtree.h"
 #include "ReaderWP.h"
 #include "ProbDataWP.h"
+#include "heurvoronoi.h"
 #include "scip/scip.h"
 #include "scip/scipdefplugins.h"
 
@@ -68,7 +69,7 @@ SCIP_RETCODE runCircle(
 	SCIP_CALL( SCIPcreate(&scip) );
 
 
-	SCIP_CALL( SCIPincludeObjReader(scip, new tree::ReaderWP(scip), TRUE) );
+	SCIP_CALL( SCIPincludeObjReader(scip, new ReaderWP(scip), TRUE) );
 	SCIP_CALL( SCIPincludeObjConshdlr(scip, new ConshdlrSubtree(scip), TRUE) );
 	SCIP_CALL( SCIPincludeObjHeur(scip, new heur_voronoi(scip), TRUE) );
 
