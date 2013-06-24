@@ -62,7 +62,7 @@ typedef struct GraphNode
 	struct GraphNode      *stack_link;   /**< for stack of active node */
 	struct GraphNode      *parent;       /**< pointer of Gomory-Hu cut tree */
 
-	SCIP_VAR**		       var_v;		  /**< Varpointer. Laenge #WK. */
+	SCIP_VAR**		       var_v;		  /**< Varpointer. Laenge #WK. y vars.*/
 
 } GRAPHNODE;
 
@@ -95,6 +95,7 @@ typedef struct Graph
 	int                   nedgesnonzero;
 
 	int 				  nwahlkreise;
+	int					  avg;
 
 	GraphNode             *nodes;        /**< array containing the nodes of the graph */
 

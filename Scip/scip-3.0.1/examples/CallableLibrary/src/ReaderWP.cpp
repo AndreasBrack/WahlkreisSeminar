@@ -21,6 +21,8 @@
 #include <string>
 #include <sstream>
 
+#include <vector>
+
 #include "objscip/objscip.h"
 
 #include "scip/cons_linear.h"
@@ -73,7 +75,7 @@ void ReaderWP::getNodesFromFile(
 		getline(filedata, id, ',');
 		iid =  atol(id.c_str());
 		getline(filedata, name, ',');
-//		name = name.c_str();
+		//		name = name.c_str();
 		getline(filedata, xkood, ',');
 		dxkood = strtod(xkood.c_str(), NULL);
 		getline(filedata, ykood, ',');
@@ -162,44 +164,44 @@ void ReaderWP::getEdgesFromFile(
 		nodestart = &graph->nodes[KiidStart];
 		nodeend = &graph->nodes[KiidTarget];
 
-        // construct two 'parallel' halfedges
-        edgeforw->adjac = nodeend;
-        edgebackw->adjac = nodestart;
-        edgeforw->back = edgebackw;
-        edgebackw->back = edgeforw;
+		// construct two 'parallel' halfedges
+		edgeforw->adjac = nodeend;
+		edgebackw->adjac = nodestart;
+		edgeforw->back = edgebackw;
+		edgebackw->back = edgeforw;
 
-        // resize edge->var_v
-        SCIPallocMemoryArray(scip, &(edgeforw->var_v), graph->nwahlkreise);
-        SCIPallocMemoryArray(scip, &(edgebackw->var_v), graph->nwahlkreise);
+		// resize edge->var_v
+		SCIPallocMemoryArray(scip, &(edgeforw->var_v), graph->nwahlkreise);
+		SCIPallocMemoryArray(scip, &(edgebackw->var_v), graph->nwahlkreise);
 
 
 
-        // insert one of the halfedges into the edge list of the node
-        if (nodestart->first_edge == NULL)
-        {
-           nodestart->first_edge = edgeforw;
-           nodestart->first_edge->next = NULL;
-        }
-        else
-        {
-           edgeforw->next = nodestart->first_edge;
-           nodestart->first_edge = edgeforw;
-        }
+		// insert one of the halfedges into the edge list of the node
+		if (nodestart->first_edge == NULL)
+		{
+			nodestart->first_edge = edgeforw;
+			nodestart->first_edge->next = NULL;
+		}
+		else
+		{
+			edgeforw->next = nodestart->first_edge;
+			nodestart->first_edge = edgeforw;
+		}
 
-        // dito
-        if (nodeend->first_edge == NULL)
-        {
-           nodeend->first_edge = edgebackw;
-           nodeend->first_edge->next = NULL;
-        }
-        else
-        {
-           edgebackw->next = nodeend->first_edge;
-           nodeend->first_edge = edgebackw;
-        }
+		// dito
+		if (nodeend->first_edge == NULL)
+		{
+			nodeend->first_edge = edgebackw;
+			nodeend->first_edge->next = NULL;
+		}
+		else
+		{
+			edgebackw->next = nodeend->first_edge;
+			nodeend->first_edge = edgebackw;
+		}
 
-        edgeforw++;
-        edgebackw++;
+		edgeforw++;
+		edgebackw++;
 
 		i++;
 		getline(filedata, token, ',');
@@ -240,9 +242,9 @@ string ReaderWP::convertinttostring(const int i)
 
 string ReaderWP::convertInt(int number)
 {
-   stringstream ss;//create a stringstream
-   ss << number;//add number to the stream
-   return ss.str();//return a string with the contents of the stream
+	stringstream ss;//create a stringstream
+	ss << number;//add number to the stream
+	return ss.str();//return a string with the contents of the stream
 }
 
 int ReaderWP::idtoid(GRAPH* G, long int id)
@@ -385,6 +387,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 		return SCIP_READERROR;
 
 	graph->nwahlkreise = nwahlkreise;
+	graph->avg		   = avg;
 
 	SCIPallocMemoryArray(scip, &(graph->a_pos_var_v), graph->nwahlkreise );
 	SCIPallocMemoryArray(scip, &(graph->a_neg_var_v), graph->nwahlkreise );
@@ -452,24 +455,24 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	{
 		for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
 		{
-		      SCIP_VAR* var;
+			SCIP_VAR* var;
 
-		      stringstream varname;
-		      GRAPHEDGE* edge = &graph->edges[e_it];
+			stringstream varname;
+			GRAPHEDGE* edge = &graph->edges[e_it];
 
-		      // the variable is named after the two nodes connected by the edge it represents
-		      varname << "x_" << edge->back->adjac->stadtid << "_" << edge->adjac->stadtid << "_" << wk_it;
-		      SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 1.0,
-		    		  FAK_0 * (edge->back->adjac->kreisid == edge->adjac->kreisid) ? KOSTEN_GLEICHWK : KOSTEN_VERSCHWK,
-		    		  SCIP_VARTYPE_BINARY, TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
+			// the variable is named after the two nodes connected by the edge it represents
+			varname << "x_" << edge->back->adjac->stadtid << "_" << edge->adjac->stadtid << "_" << wk_it;
+			SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 1.0,
+					FAK_0 * (edge->back->adjac->kreisid == edge->adjac->kreisid) ? KOSTEN_GLEICHWK : KOSTEN_VERSCHWK,
+							SCIP_VARTYPE_BINARY, TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
 
 
-		      /* add variable to SCIP and to the graph */
-		      SCIP_CALL( SCIPaddVar(scip, var) );
-		      SCIP_CALL( addVarToEdges(scip, edge, var, wk_it) );
+			/* add variable to SCIP and to the graph */
+			SCIP_CALL( SCIPaddVar(scip, var) );
+			SCIP_CALL( addVarToEdges(scip, edge, var, wk_it) );
 
-		      /* release variable for the reader. */
-		      SCIP_CALL( SCIPreleaseVar(scip, &var) );
+			/* release variable for the reader. */
+			SCIP_CALL( SCIPreleaseVar(scip, &var) );
 		}
 
 	}
@@ -481,22 +484,22 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	{
 		for ( int n_it = 0 ; n_it < graph->nnodes ; ++n_it )
 		{
-		      SCIP_VAR* var;
+			SCIP_VAR* var;
 
-		      stringstream varname;
-		      GRAPHNODE* node = &graph->nodes[n_it];
+			stringstream varname;
+			GRAPHNODE* node = &graph->nodes[n_it];
 
-		      // the variable is named after the two nodes connected by the edge it represents
-		      varname << "y_" << node->stadtid << "_" << wk_it;
-		      SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY,
-		    		  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
+			// the variable is named after the two nodes connected by the edge it represents
+			varname << "y_" << node->stadtid << "_" << wk_it;
+			SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 1.0, 0.0, SCIP_VARTYPE_BINARY,
+					TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
 
-		      /* add variable to SCIP and to the graph */
-		      SCIP_CALL( SCIPaddVar(scip, var) );
-		      SCIP_CALL( addVarToNodes(scip, node, var, wk_it) );
+			/* add variable to SCIP and to the graph */
+			SCIP_CALL( SCIPaddVar(scip, var) );
+			SCIP_CALL( addVarToNodes(scip, node, var, wk_it) );
 
-		      /* release variable for the reader. */
-		      SCIP_CALL( SCIPreleaseVar(scip, &var) );
+			/* release variable for the reader. */
+			SCIP_CALL( SCIPreleaseVar(scip, &var) );
 		}
 	}
 
@@ -506,47 +509,47 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	// a_pos(w)
 	for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
 	{
-		  SCIP_VAR* var;
+		SCIP_VAR* var;
 
-		  stringstream varname;
+		stringstream varname;
 
-		  // the variable is named after the two nodes connected by the edge it represents
-		  varname << "a_pos_" << wk_it;
-		  SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, SCIPinfinity(scip), 0.0, SCIP_VARTYPE_CONTINUOUS,
-				  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
+		// the variable is named after the two nodes connected by the edge it represents
+		varname << "a_pos_" << wk_it;
+		SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, SCIPinfinity(scip), 0.0, SCIP_VARTYPE_CONTINUOUS,
+				TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
 
-		  /* add variable to SCIP */
-		  SCIP_CALL( SCIPaddVar(scip, var) );
+		/* add variable to SCIP */
+		SCIP_CALL( SCIPaddVar(scip, var) );
 
-		  // add var to graph
-		  graph->a_pos_var_v[wk_it] = var;
-		  SCIP_CALL( SCIPcaptureVar(scip, graph->a_pos_var_v[wk_it]) );
+		// add var to graph
+		graph->a_pos_var_v[wk_it] = var;
+		SCIP_CALL( SCIPcaptureVar(scip, graph->a_pos_var_v[wk_it]) );
 
-		  /* release variable for the reader. */
-		  SCIP_CALL( SCIPreleaseVar(scip, &var) );
+		/* release variable for the reader. */
+		SCIP_CALL( SCIPreleaseVar(scip, &var) );
 	}
 
 	// a_neg(w)
 	for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
 	{
-		  SCIP_VAR* var;
+		SCIP_VAR* var;
 
-		  stringstream varname;
+		stringstream varname;
 
-		  // the variable is named after the two nodes connected by the edge it represents
-		  varname << "a_neg_" << wk_it;
-		  SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, SCIPinfinity(scip), 0.0, SCIP_VARTYPE_CONTINUOUS,
-				  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
+		// the variable is named after the two nodes connected by the edge it represents
+		varname << "a_neg_" << wk_it;
+		SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, SCIPinfinity(scip), 0.0, SCIP_VARTYPE_CONTINUOUS,
+				TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
 
-		  /* add variable to SCIP */
-		  SCIP_CALL( SCIPaddVar(scip, var) );
+		/* add variable to SCIP */
+		SCIP_CALL( SCIPaddVar(scip, var) );
 
-		  // add var to graph
-		  graph->a_neg_var_v[wk_it] = var;
-		  SCIP_CALL( SCIPcaptureVar(scip, graph->a_neg_var_v[wk_it]) );
+		// add var to graph
+		graph->a_neg_var_v[wk_it] = var;
+		SCIP_CALL( SCIPcaptureVar(scip, graph->a_neg_var_v[wk_it]) );
 
-		  /* release variable for the reader. */
-		  SCIP_CALL( SCIPreleaseVar(scip, &var) );
+		/* release variable for the reader. */
+		SCIP_CALL( SCIPreleaseVar(scip, &var) );
 	}
 
 	// a_max
@@ -556,7 +559,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 	varname << "a_max";
 	SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 0.5, FAK_1, SCIP_VARTYPE_CONTINUOUS,
-		  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
+			TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
 
 	/* add variable to SCIP */
 	SCIP_CALL( SCIPaddVar(scip, var) );
@@ -594,9 +597,9 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 			// x(i,i,w) <= y(i,w)
 			name << "x_leq_y_i_" << graph->edges[e_it].back->adjac->stadtid << "_"
-							   << graph->edges[e_it].adjac->stadtid << "__"
-							   << graph->edges[e_it].back->adjac->stadtid << "__"
-							   << wk_it;
+					<< graph->edges[e_it].adjac->stadtid << "__"
+					<< graph->edges[e_it].back->adjac->stadtid << "__"
+					<< wk_it;
 
 			xleqyvars[0] = graph->edges[e_it].var_v[wk_it];
 			xleqyvars[1] = graph->nodes[ graph->edges[e_it].back->adjac->id ].var_v[wk_it];
@@ -613,9 +616,9 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 			// x(i,j,w) <= y(j,w)
 			name << "x_leq_y_j_" << graph->edges[e_it].back->adjac->stadtid << "_"
-							   << graph->edges[e_it].adjac->stadtid << "__"
-							   << graph->edges[e_it].adjac->stadtid << "__"
-							   << wk_it;
+					<< graph->edges[e_it].adjac->stadtid << "__"
+					<< graph->edges[e_it].adjac->stadtid << "__"
+					<< wk_it;
 
 			xleqyvars[0] = graph->edges[e_it].var_v[wk_it];
 			xleqyvars[1] = graph->nodes[ graph->edges[e_it].adjac->id ].var_v[wk_it];
@@ -673,57 +676,57 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	SCIPfreeBufferArray(scip, &vals);
 
 
-//	//TODO: ?-Constraint  noch mit rein?
-//	// ############################################################################################################################
-//	// # sum(j,w,x(i,j,w)) + sum(j,w,x(j,i,w)) >= 1 für alle i Constraint
-//	// # <=> 1 <= sum(j,w,x(i,j,w)) + sum(j,w,x(j,i,w)) <= inf
-//	// ############################################################################################################################
-//	SCIP_CALL( SCIPallocBufferArray(scip, &vars, graph->nedges * graph->nwahlkreise) );
-//	SCIP_CALL( SCIPallocBufferArray(scip, &vals, graph->nedges * graph->nwahlkreise) );
-//	for ( int it = 0 ; it < graph->nedges * graph->nwahlkreise ; ++it)
-//		vals[it] = 1;
-//
-//
-//	for (int n_it = 0 ; n_it < graph->nnodes ; ++n_it)
-//	{
-//		SCIP_Cons* cons;
-//		stringstream name;
-//
-//		name << "Fragezeichen_" << n_it;
-//
-//		int grad = 0;
-//		int it = 0;
-//		for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
-//		{
-//			if ( graph->edges[e_it].adjac->stadtid == graph->nodes[n_it].stadtid )
-//				grad++;
-//				for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it )
-//				{
-//				    vars[it] = graph->edges[e_it].var_v[wk_it];
-//				    it++;
-//				}
-//
-//			if ( graph->edges[e_it].back->adjac->stadtid == graph->nodes[n_it].stadtid )
-//				grad++;
-//				for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it )
-//				{
-//					vars[it] = graph->edges[e_it].back->var_v[wk_it];
-//					it++;
-//				}
-//		}
-//
-//		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-//				name.str().c_str(),
-//				it, vars, vals,
-//				1.0, SCIPinfinity(scip),
-//				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-//		SCIP_CALL( SCIPaddCons(scip, cons) );
-//		SCIP_CALL( SCIPreleaseCons(scip, &cons) );
-//		name.str("");
-//	}
-//
-//	SCIPfreeBufferArray(scip, &vars);
-//	SCIPfreeBufferArray(scip, &vals);
+	//	//TODO: ?-Constraint  noch mit rein?
+	//	// ############################################################################################################################
+	//	// # sum(j,w,x(i,j,w)) + sum(j,w,x(j,i,w)) >= 1 für alle i Constraint
+	//	// # <=> 1 <= sum(j,w,x(i,j,w)) + sum(j,w,x(j,i,w)) <= inf
+	//	// ############################################################################################################################
+	//	SCIP_CALL( SCIPallocBufferArray(scip, &vars, graph->nedges * graph->nwahlkreise) );
+	//	SCIP_CALL( SCIPallocBufferArray(scip, &vals, graph->nedges * graph->nwahlkreise) );
+	//	for ( int it = 0 ; it < graph->nedges * graph->nwahlkreise ; ++it)
+	//		vals[it] = 1;
+	//
+	//
+	//	for (int n_it = 0 ; n_it < graph->nnodes ; ++n_it)
+	//	{
+	//		SCIP_Cons* cons;
+	//		stringstream name;
+	//
+	//		name << "Fragezeichen_" << n_it;
+	//
+	//		int grad = 0;
+	//		int it = 0;
+	//		for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
+	//		{
+	//			if ( graph->edges[e_it].adjac->stadtid == graph->nodes[n_it].stadtid )
+	//				grad++;
+	//				for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it )
+	//				{
+	//				    vars[it] = graph->edges[e_it].var_v[wk_it];
+	//				    it++;
+	//				}
+	//
+	//			if ( graph->edges[e_it].back->adjac->stadtid == graph->nodes[n_it].stadtid )
+	//				grad++;
+	//				for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it )
+	//				{
+	//					vars[it] = graph->edges[e_it].back->var_v[wk_it];
+	//					it++;
+	//				}
+	//		}
+	//
+	//		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+	//				name.str().c_str(),
+	//				it, vars, vals,
+	//				1.0, SCIPinfinity(scip),
+	//				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+	//		SCIP_CALL( SCIPaddCons(scip, cons) );
+	//		SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+	//		name.str("");
+	//	}
+	//
+	//	SCIPfreeBufferArray(scip, &vars);
+	//	SCIPfreeBufferArray(scip, &vals);
 
 
 	// ############################################################################################################################
@@ -838,19 +841,19 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 	// ############################################################################################################################
 	// # mod. Subtour Elimination Constraints
-    // # Für alle S Teilmenge Städte, 3 <= /S/ <= /Städte/- 1:
+	// # Für alle S Teilmenge Städte, 3 <= /S/ <= /Städte/- 1:
 	// # sum(i,j in E, w in W) x(i,j,w) <= /S/ -1
 	// ############################################################################################################################
 	SCIP_Cons* cons;
 	SCIP_CALL( SCIPcreateConsSubtree(scip, &cons, "subtree", graph,
-	         FALSE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, TRUE ) );
+			FALSE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, TRUE ) );
 	SCIP_CALL( SCIPaddCons(scip, cons) );
 	SCIP_CALL( SCIPreleaseCons(scip, &cons) );
 
 	SCIPdebugMessage("verlasse Setup\n");
 
 	// TODO ?! release_graph
-//	release_graph(scip, &graph);
+	//	release_graph(scip, &graph);
 	*result = SCIP_SUCCESS;
 
 

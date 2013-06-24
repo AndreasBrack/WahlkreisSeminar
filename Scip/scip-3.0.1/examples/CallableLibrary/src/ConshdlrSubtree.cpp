@@ -5,7 +5,7 @@
  *      Author: andreas
  */
 
-#define SCIP_DEBUG
+//#define SCIP_DEBUG
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
 
 #include <cassert>
@@ -42,7 +42,7 @@ SCIP_Bool findSubtree(
 	// return true falls es einen Subtree gibt
 	// return false falls es keinen Subtree gibt
 
-	SCIPdebugMessage("beginne findSubtree\n");
+	//SCIPdebugMessage("beginne findSubtree\n");
 
 
 	SCIP* sub_scip;
@@ -366,7 +366,7 @@ SCIP_Bool findSubtree(
 
 	SCIP_SOL* sub_sol = SCIPgetBestSol(sub_scip);
 
-	std::cout << "zielfkt: " << SCIPgetPrimalbound(sub_scip) << std::endl;
+	//SCIPdebugMessage("zielfkt: %f\n ", SCIPgetPrimalbound(sub_scip));
 
 	//SCIPprintBestSol(sub_scip, NULL, false);
 

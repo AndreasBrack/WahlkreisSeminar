@@ -29,7 +29,8 @@ MAINOBJ		=	circle.o \
 				ReaderWP.o \
 				GomoryHuTree.o \
 				ProbDataWP.o \
-				ConshdlrSubtree.o 
+				ConshdlrSubtree.o \
+				heurvoronoi.o
 MAINSRC		=	$(addprefix $(SRCDIR)/,$(MAINOBJ:.o=.cpp))
 MAINDEP		=	$(SRCDIR)/depend.cppmain.$(OPT)
 
