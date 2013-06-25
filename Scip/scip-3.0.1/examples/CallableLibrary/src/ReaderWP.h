@@ -103,6 +103,8 @@ private:
 		 int nwahlkreise
 		 );
 
+   int minPlus(int a, int b, int c);
+
    string convertinttostring(const int i);
 
    string convertInt(int number);

@@ -44,7 +44,7 @@ SCIP_Bool findSubtree(
 
 
 
-	SCIPdebugMessage("beginne findSubtree\n");
+	//SCIPdebugMessage("beginne findSubtree\n");
 
 
 	SCIP* sub_scip;
@@ -361,14 +361,14 @@ SCIP_Bool findSubtree(
 
 	SCIPsetObjsense(sub_scip, SCIP_OBJSENSE_MAXIMIZE);
 
-	//SCIPsetObjlimit(sub_scip, 0);
+	//SCIPsetObjlimit(sub_scip, -1 + SCIPepsilon(sub_scip));
 	//SCIPsetIntParam(sub_scip, "limits/solutions", 1);
 
 	SCIPsolve(sub_scip);
 
 	SCIP_SOL* sub_sol = SCIPgetBestSol(sub_scip);
 
-	std::cout << "zielfkt: " << SCIPgetPrimalbound(sub_scip) << std::endl;
+	//std::cout << "zielfkt: " << SCIPgetPrimalbound(sub_scip) << std::endl;
 
 	//SCIPprintBestSol(sub_scip, NULL, false);
 
@@ -727,7 +727,7 @@ SCIP_RETCODE sepaSubtree(
 
 		SCIPsetObjsense(sub_scip, SCIP_OBJSENSE_MAXIMIZE);
 
-		//SCIPsetObjlimit(sub_scip, 0);
+		//SCIPsetObjlimit(sub_scip, -1 + SCIPepsilon(sub_scip));
 		//SCIPsetIntParam(sub_scip, "limits/solutions", 1);
 
 		SCIPsolve(sub_scip);
@@ -1242,7 +1242,7 @@ SCIP_DECL_CONSPRINT(ConshdlrSubtree::scip_print)
 	SCIP_CONSDATA* consdata;
 	GRAPH* g;
 
-	SCIPprintCons(scip, cons, NULL);
+	//SCIPprintCons(scip, cons, NULL);
 
 	consdata = SCIPconsGetData(cons);
 	assert(consdata != NULL);
