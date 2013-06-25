@@ -754,28 +754,29 @@ SCIP_RETCODE sepaSubtree(
 			}
 			rhs --;
 
-			SCIP_ROW* row;
-			SCIP_CALL( SCIPcreateEmptyRowCons(scip, &row, conshdlr, "sepa_subtree", - SCIPinfinity(scip), rhs, FALSE, FALSE, TRUE) );
-			SCIP_CALL( SCIPcacheRowExtensions(scip, row) );
-
-			for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
+			for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it )
 			{
-				if ( SCIPisEQ(sub_scip, SCIPgetSolVal(sub_scip, sub_sol, z_vars[e_it]), 1)  )
+
+				SCIP_ROW* row;
+				SCIP_CALL( SCIPcreateEmptyRowCons(scip, &row, conshdlr, "sepa_subtree", - SCIPinfinity(scip), rhs, FALSE, FALSE, TRUE) );
+				SCIP_CALL( SCIPcacheRowExtensions(scip, row) );
+
+				for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
 				{
-					for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it )
+					if ( SCIPisEQ(sub_scip, SCIPgetSolVal(sub_scip, sub_sol, z_vars[e_it]), 1)  )
 					{
 						SCIP_CALL( SCIPaddVarToRow(scip, row, graph->edges[e_it].var_v[wk_it], 1) );
 					}
 				}
-			}
-			SCIP_CALL( SCIPflushRowExtensions(scip, row) );
+				SCIP_CALL( SCIPflushRowExtensions(scip, row) );
 
-			if ( SCIPisCutEfficacious(scip, sol, row) )
-			{
-				SCIP_CALL( SCIPaddCut(scip, sol, row, FALSE) );
-				*result = SCIP_SEPARATED;
+				if ( SCIPisCutEfficacious(scip, sol, row) )
+				{
+					SCIP_CALL( SCIPaddCut(scip, sol, row, TRUE) );
+					*result = SCIP_SEPARATED;
+				}
+				SCIP_CALL( SCIPreleaseRow(scip, &row) );
 			}
-			SCIP_CALL( SCIPreleaseRow(scip, &row) );
 		}else{
 			*result = SCIP_DIDNOTFIND;
 		}
