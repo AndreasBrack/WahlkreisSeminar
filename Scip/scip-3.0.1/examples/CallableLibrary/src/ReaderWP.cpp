@@ -12,6 +12,7 @@
 #define FAK_1					     1		/**< Faktor vor a_max */
 #define KOSTEN_VERSCHWK 			25		/**< Strafkosten falls benachbarte Kreisgleiche Städte verschiedene Wahlkreise erhalten*/
 #define KOSTEN_GLEICHWK 			 0		/**< */
+#define AMAX					   0.8
 
 #define SCIP_DEBUG
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
@@ -379,7 +380,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 		}
 	}
 
-	std::cout << "nnodes: " << nnodes << "   nedges: " << nedges << " avg: " << avg << "   nwahlkreise: " << nwahlkreise << std::endl;
+	//std::cout << "nnodes: " << nnodes << "   nedges: " << nedges << " avg: " << avg << "   nwahlkreise: " << nwahlkreise << std::endl;
 
 
 	/* if we have the number of nodes and edges we construct the graph */
@@ -392,7 +393,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	SCIPallocMemoryArray(scip, &(graph->a_pos_var_v), graph->nwahlkreise );
 	SCIPallocMemoryArray(scip, &(graph->a_neg_var_v), graph->nwahlkreise );
 
-	std::cout << "Dim:" << graph->nnodes << " Kant: " << graph->nedges << " nWK: " << graph->nwahlkreise << std::endl;
+	//std::cout << "Dim:" << graph->nnodes << " Kant: " << graph->nedges << " nWK: " << graph->nwahlkreise << std::endl;
 
 
 	/* read in the nodes and edges */
@@ -401,9 +402,9 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	while( !filedata.eof() )
 	{
 		getline(filedata, tmp, ',');
-		std::cout << "tmp: " << tmp << std::endl;
-		std::cout << "tmp[0]: " << tmp[0] << std::endl;
-		std::cout << "tmp[1]: " << tmp[1] << std::endl;
+//		std::cout << "tmp: " << tmp << std::endl;
+//		std::cout << "tmp[0]: " << tmp[0] << std::endl;
+//		std::cout << "tmp[1]: " << tmp[1] << std::endl;
 
 		//exit(-1);
 		if(tmp[1] == '#')
@@ -414,28 +415,28 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 
 		else if(tmp[1] == 'v')
 		{
-			std::cout << "scip_read_v" << std::endl;
+//			std::cout << "scip_read_v" << std::endl;
 			ReaderWP::getNodesFromFile(scip, filedata, graph);
-			std::cout << "Knoten eingelesen!" << std::endl;
+//			std::cout << "Knoten eingelesen!" << std::endl;
 		}
 
 		else if(tmp[0] == 'e')
 		{
-			std::cout << "scip_read_e" << std::endl;
+//			std::cout << "scip_read_e" << std::endl;
 			ReaderWP::getEdgesFromFile(scip, filedata, graph);
-			std::cout << "Kanten eingelesen!" << std::endl;
+//			std::cout << "Kanten eingelesen!" << std::endl;
 		}
 
 		else
 		{
-			std::cout << "scip_read_else" << std::endl;
+//			std::cout << "scip_read_else" << std::endl;
 			SCIPdebugMessage("Not parsing a line.");
 		}
 	}
 
 	// END: Input einlesen +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-	std::cout << "### ENDE einlesen" << std::endl;
+//	std::cout << "### ENDE einlesen" << std::endl;
 
 	// TODO: avg auch über wp-file einlesen
 	//double avg = ReaderWP::getavg(graph,graph->nwahlkreise);
@@ -443,7 +444,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	// create the problem's data structure
 	SCIP_CALL( SCIPcreateObjProb(scip, "WP-ProbData", new ProbDataWP(graph), TRUE) );
 
-	std::cout << "### nach SCIPcreateObjProb" << std::endl;
+//	std::cout << "### nach SCIPcreateObjProb" << std::endl;
 
 	//SCIP_CALL( SCIPsetObjsense(scip, SCIP_OBJSENSE_MINIMIZE) ); //per default min
 
@@ -558,7 +559,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	stringstream varname;
 
 	varname << "a_max";
-	SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, 0.5, FAK_1, SCIP_VARTYPE_CONTINUOUS,
+	SCIP_CALL( SCIPcreateVar(scip, &var, varname.str().c_str(), 0.0, AMAX, FAK_1, SCIP_VARTYPE_CONTINUOUS,
 			TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
 
 	/* add variable to SCIP */

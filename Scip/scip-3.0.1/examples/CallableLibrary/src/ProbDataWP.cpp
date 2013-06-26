@@ -46,6 +46,7 @@ SCIP_RETCODE copy_graph(
       return SCIP_NOMEMORY;
 
    (*graph)->nwahlkreise = sourcegraph->nwahlkreise;
+   (*graph)->avg 		 = sourcegraph->avg;
 
    // copy nodes
    for(int i = 0; i < n; ++i)
@@ -138,6 +139,7 @@ SCIP_RETCODE ProbDataWP::scip_copy(
    assert( sourcegraph->a_neg_var_v[0] != NULL );
    assert( sourcegraph->edges[0].var_v[0] != NULL );
    assert( sourcegraph->nodes[0].var_v[0] != NULL );
+   assert( sourcegraph->avg > 0);
 
 
    // copy graph

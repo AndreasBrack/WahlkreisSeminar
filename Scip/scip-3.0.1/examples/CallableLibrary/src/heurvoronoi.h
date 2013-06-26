@@ -5,7 +5,7 @@
  *      Author: andreas
  */
 
-#define SCIP_DEBUG
+// #define SCIP_DEBUG
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
 
 #include <iostream>
@@ -35,7 +35,6 @@ using namespace std;
 namespace tree
 {
 
-
 class heur_voronoi : public scip::ObjHeur
 {
 
@@ -46,9 +45,8 @@ public:
 	/** default constructor */
 	heur_voronoi(
 			SCIP* scip
-	) : ObjHeur(scip, "voronoi", "voronoi", 'V', 50000, 1, 0, 1,
+	) : ObjHeur(scip, "voronoi", "Voronoi", 'V', 50000, 1, 0, 0,
 			SCIP_HEURTIMING_BEFOREPRESOL, FALSE)
-
 	{
 	}
 
@@ -93,9 +91,9 @@ public:
 
 	/** returns whether the objective plugin is copyable */
 	virtual SCIP_DECL_HEURISCLONEABLE(iscloneable)
-			{
-		return false;
-			}
+	{
+		return TRUE;
+	}
 };
 
 }

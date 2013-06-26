@@ -54,6 +54,7 @@ typedef struct GraphNode
 
 	SCIP_Bool              unmarked;      /**< while BFS in progress */
 	SCIP_Bool              alive;
+	SCIP_Bool			   primfound;	  /**< for Prims Algorithm */
 
 	struct GraphEdge      *first_edge;   /**< in list of incident edges */
 	struct GraphEdge      *scan_ptr;     /**< next edge to be scanned when node will be visited again */
