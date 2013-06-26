@@ -5,7 +5,7 @@
  *      Author: andreas
  */
 
-#define KREIS_MAX 			 100
+#define KREIS_MAX 			 3
 
 #define SCIP_DEBUG
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
@@ -82,7 +82,7 @@ SCIP_Bool findSubtree(
 		  // the variable is named after the two nodes connected by the edge it represents
 		  varname << "x_" << edge->back->adjac->stadtid << "_" << edge->adjac->stadtid << "_0";
 		  SCIP_CALL( SCIPcreateVar(sub_scip, &var, varname.str().c_str(), 0.0, 1.0,
-				  val ,
+				  0 ,
 				  SCIP_VARTYPE_BINARY, TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
 
 
@@ -116,7 +116,7 @@ SCIP_Bool findSubtree(
 		  // the variable is named after the two nodes connected by the edge it represents
 		  varname << "y_" << node->stadtid << "_0";
 		  SCIP_CALL( SCIPcreateVar(sub_scip, &var, varname.str().c_str(), 0.0, 1.0,
-				  - val,
+				  1,
 				  SCIP_VARTYPE_BINARY,
 				  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
 
@@ -352,6 +352,51 @@ SCIP_Bool findSubtree(
 	SCIPfreeBufferArray(sub_scip, &vars);
 	SCIPfreeBufferArray(sub_scip, &vals);
 
+	// ############################################################################################################################
+	// # sum(i,j Kante, sum(w, x*(i,j,w)) * z(i,j) - sum(i,v(i)) == 0 Constraint
+	// # <=> 0 <= sum(i,j Kante, sum(w, x*(i,j,w)) * z(i,j) - sum(i,v(i)) <= 0
+	// ############################################################################################################################
+
+	SCIP_CALL( SCIPallocBufferArray(sub_scip, &vars, graph->nedges + graph->nnodes) );
+	SCIP_CALL( SCIPallocBufferArray(sub_scip, &vals, graph->nedges + graph->nnodes) );
+
+	for( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
+	{
+		vals[e_it] = 0;
+		vars[e_it] = z_vars[e_it];
+
+		for ( int w_it = 0 ; w_it < graph->nwahlkreise ; ++w_it )
+		{
+				vals[e_it] += SCIPgetSolVal(scip, sol, graph->edges[e_it].var_v[w_it]);
+		}
+	}
+
+	for ( int n_it = 0 ; n_it < graph->nnodes ; ++n_it)
+	{
+		vals[graph->nedges + n_it] = -1;
+		vars[graph->nedges + n_it] = v_vars[n_it];
+
+	}
+
+
+	//SCIP_Cons* cons;
+	//stringstream name;
+
+	name << "Wollen_Kreis_";
+
+	SCIP_CALL( SCIPcreateConsLinear(sub_scip, &cons,
+			name.str().c_str(),
+			graph->nedges + graph->nnodes, vars, vals,
+			0, 0,
+			TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+	SCIP_CALL( SCIPaddCons(sub_scip, cons) );
+	SCIP_CALL( SCIPreleaseCons(sub_scip, &cons) );
+
+	name.str("");
+
+	SCIPfreeBufferArray(sub_scip, &vars);
+	SCIPfreeBufferArray(sub_scip, &vals);
+
 
 	SCIPfreeBufferArray(sub_scip, &v_vars);
 	SCIPfreeBufferArray(sub_scip, &z_vars);
@@ -361,10 +406,10 @@ SCIP_Bool findSubtree(
 	SCIPsetIntParam(sub_scip, "display/verblevel" , 0);
 	//SCIPObj()
 
-	SCIPsetObjsense(sub_scip, SCIP_OBJSENSE_MAXIMIZE);
+	SCIPsetObjsense(sub_scip, SCIP_OBJSENSE_MINIMIZE);
 
 	//SCIPsetObjlimit(sub_scip, -1 + SCIPepsilon(sub_scip));
-	//SCIPsetIntParam(sub_scip, "limits/solutions", 1);
+	SCIPsetIntParam(sub_scip, "limits/solutions", 1);
 
 	SCIPsolve(sub_scip);
 
@@ -374,7 +419,7 @@ SCIP_Bool findSubtree(
 
 	//SCIPprintBestSol(sub_scip, NULL, false);
 
-	if ( SCIPisGT(sub_scip, SCIPgetPrimalbound(sub_scip) , -1))
+	if (sub_sol != NULL )//SCIPisGT(sub_scip, SCIPgetPrimalbound(sub_scip) , -1))
 	{
 
 		SCIP_CALL( SCIPfree(&sub_scip) );
@@ -449,7 +494,7 @@ SCIP_RETCODE sepaSubtree(
 			  // the variable is named after the two nodes connected by the edge it represents
 			  varname << "x_" << edge->back->adjac->stadtid << "_" << edge->adjac->stadtid << "_0";
 			  SCIP_CALL( SCIPcreateVar(sub_scip, &var, varname.str().c_str(), 0.0, 1.0,
-					  val ,
+					  0 ,
 					  SCIP_VARTYPE_BINARY, TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
 
 
@@ -483,7 +528,7 @@ SCIP_RETCODE sepaSubtree(
 			  // the variable is named after the two nodes connected by the edge it represents
 			  varname << "y_" << node->stadtid << "_0";
 			  SCIP_CALL( SCIPcreateVar(sub_scip, &var, varname.str().c_str(), 0.0, 1.0,
-					  - val,
+					  1,
 					  SCIP_VARTYPE_BINARY,
 					  TRUE, FALSE, NULL, NULL, NULL, NULL, NULL) );
 
@@ -719,6 +764,51 @@ SCIP_RETCODE sepaSubtree(
 		SCIPfreeBufferArray(sub_scip, &vars);
 		SCIPfreeBufferArray(sub_scip, &vals);
 
+		// ############################################################################################################################
+		// # sum(i,j Kante, sum(w, x*(i,j,w)) * z(i,j) - sum(i,v(i)) == 0 Constraint
+		// # <=> 0 <= sum(i,j Kante, sum(w, x*(i,j,w)) * z(i,j) - sum(i,v(i)) <= 0
+		// ############################################################################################################################
+
+		SCIP_CALL( SCIPallocBufferArray(sub_scip, &vars, graph->nedges + graph->nnodes) );
+		SCIP_CALL( SCIPallocBufferArray(sub_scip, &vals, graph->nedges + graph->nnodes) );
+
+		for( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
+		{
+			vals[e_it] = 0;
+			vars[e_it] = z_vars[e_it];
+
+			for ( int w_it = 0 ; w_it < graph->nwahlkreise ; ++w_it )
+			{
+					vals[e_it] += SCIPgetSolVal(scip, sol, graph->edges[e_it].var_v[w_it]);
+			}
+		}
+
+		for ( int n_it = 0 ; n_it < graph->nnodes ; ++n_it)
+		{
+			vals[graph->nedges + n_it] = -1;
+			vars[graph->nedges + n_it] = v_vars[n_it];
+
+		}
+
+
+		//SCIP_Cons* cons;
+		//stringstream name;
+
+		name << "Wollen_Kreis_";
+
+		SCIP_CALL( SCIPcreateConsLinear(sub_scip, &cons,
+				name.str().c_str(),
+				graph->nedges + graph->nnodes, vars, vals,
+				0, 0,
+				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+		SCIP_CALL( SCIPaddCons(sub_scip, cons) );
+		SCIP_CALL( SCIPreleaseCons(sub_scip, &cons) );
+
+		name.str("");
+
+		SCIPfreeBufferArray(sub_scip, &vars);
+		SCIPfreeBufferArray(sub_scip, &vals);
+
 
 
 
@@ -727,9 +817,9 @@ SCIP_RETCODE sepaSubtree(
 		SCIPsetIntParam(sub_scip, "display/verblevel" , 0);
 		//SCIPObj()
 
-		SCIPsetObjsense(sub_scip, SCIP_OBJSENSE_MAXIMIZE);
+		SCIPsetObjsense(sub_scip, SCIP_OBJSENSE_MINIMIZE);
 
-		SCIPsetObjlimit(sub_scip, -1);
+		//SCIPsetObjlimit(sub_scip, -1);
 		SCIPsetIntParam(sub_scip, "limits/solutions", 1);
 
 		SCIPsolve(sub_scip);
@@ -742,7 +832,7 @@ SCIP_RETCODE sepaSubtree(
 
 	// ###############################################################################################################################################
 
-		if ( SCIPisGT(sub_scip, SCIPgetPrimalbound(sub_scip) , -1 ))
+		if ( sub_sol != NULL )//SCIPisGT(sub_scip, SCIPgetPrimalbound(sub_scip) , -1 ))
 		{
 
 			int rhs = 0;
@@ -802,6 +892,53 @@ SCIP_RETCODE sepaSubtree(
 
 				SCIPfreeBufferArray(scip, &vars);
 				SCIPfreeBufferArray(scip, &vals);
+
+				// für die einzelnen WK
+				for (int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+				{
+					SCIP_CALL( SCIPallocBufferArray(scip, &vars, (rhs+1)) );
+					SCIP_CALL( SCIPallocBufferArray(scip, &vals, (rhs+1)) );
+
+					for ( int it = 0 ; it < (rhs+1) ; ++it )
+					{
+						vals[it] = 1;
+					}
+
+					SCIP_Cons* cons;
+					stringstream name;
+
+					name << "Subtreecons_"<< wk_it  ;
+
+					int var_it = 0;
+
+					for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
+					{
+						if ( SCIPisEQ(sub_scip, SCIPgetSolVal(sub_scip, sub_sol, z_vars[e_it]), 1)  )
+						{
+								vars[var_it] = graph->edges[e_it].var_v[wk_it];
+								var_it++;
+						}
+					}
+
+					SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+							name.str().c_str(),
+							(rhs+1), vars, vals,
+							- SCIPinfinity(scip), rhs,
+							TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+					SCIP_CALL( SCIPaddCons(scip, cons) );
+					//SCIPprintCons(scip, cons, NULL);
+					//string temp;
+					//std::cin >> temp;
+
+					//std::cout << "#######addcons" << std::endl;
+
+					*result = SCIP_CONSADDED; //SCIP_SEPARATED;
+					SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+					name.str("");
+
+					SCIPfreeBufferArray(scip, &vars);
+					SCIPfreeBufferArray(scip, &vals);
+				}
 
 
 //				SCIP_ROW* row;
