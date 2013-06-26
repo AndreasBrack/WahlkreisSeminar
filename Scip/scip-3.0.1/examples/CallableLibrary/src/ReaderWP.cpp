@@ -848,217 +848,217 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	SCIP_CALL( SCIPreleaseCons(scip, &cons) );
 
 
-	// ############################################################################################################################
-	// Preprocessing KNOTENGRADE
-	// ############################################################################################################################
-	int* grade;
-	SCIP_CALL( SCIPallocBufferArray(scip, &grade, graph->nnodes) );
-	for ( int n_it = 0 ; n_it < graph->nnodes ; ++n_it )
-	{
-		int grad = 0;
-		for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
-		{
-			if ( graph->edges[e_it].adjac->stadtid == graph->nodes[n_it].stadtid )
-				grad++;
-			if ( graph->edges[e_it].back->adjac->stadtid == graph->nodes[n_it].stadtid )
-				grad++;
-		}
-		grade[n_it] = grad;
-	}
-
-	for (int n_it = 0 ; n_it < graph->nnodes ; ++n_it  )
-	{
-		if ( grade[n_it] == 1 && graph->nodes[n_it].bewohner < avg * 0.75)
-		{
-			// ##################################################
-			// Knoten mit Grad eins, mit Nachbar zusammenfassen
-			// ##################################################
-			long int grad_eins_stadtid = graph->nodes[n_it].stadtid;
-			int grad_eins_id = graph->nodes[n_it].id;
-			long int nachbar_stadtid = graph->nodes[n_it].first_edge->adjac->stadtid;
-			int nachbar_id = graph->nodes[n_it].first_edge->adjac->id;
-
-			long int kanten_it;
-			for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
-			{
-				if ( graph->edges[e_it].adjac->stadtid == grad_eins_stadtid &&
-						graph->edges[e_it].back->adjac->stadtid == nachbar_stadtid )
-				{
-					kanten_it = e_it;
-					break;
-				}
-				if ( graph->edges[e_it].adjac->stadtid == nachbar_stadtid &&
-						graph->edges[e_it].back->adjac->stadtid == grad_eins_stadtid )
-				{
-					kanten_it = e_it;
-					break;
-				}
-			}
-
-			// ###############################################################
-			// y(grad_eins_stadtid , w ) = y(nachbar_stadtid , w ) für alle w
-			// <=> 0 <= y(grad_eins_stadtid , w ) - y(nachbar_stadtid , w ) <= 0 für alle w
-			SCIP_CALL( SCIPallocBufferArray(scip, &vars, 2) );
-			SCIP_CALL( SCIPallocBufferArray(scip, &vals, 2) );
-			vals[0] = 1;
-			vals[1] = -1;
-
-			for (int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
-			{
-				SCIP_Cons* cons;
-				stringstream name;
-
-				name << "Grad_eins_Zusammenschluss_" << grad_eins_stadtid << "_" << nachbar_stadtid << "__ " <<wk_it;
-
-				vars[0] = graph->nodes[grad_eins_id].var_v[wk_it];
-				vars[1] = graph->nodes[nachbar_id].var_v[wk_it];
-
-				SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-						name.str().c_str(),
-						2, vars, vals,
-						0, 0,
-						TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-				SCIP_CALL( SCIPaddCons(scip, cons) );
-				SCIP_CALL( SCIPreleaseCons(scip, &cons) );
-				name.str("");
-			}
-
-			SCIPfreeBufferArray(scip, &vars);
-			SCIPfreeBufferArray(scip, &vals);
-
-			// ###############################################################
-			// sum(w, x(kanten_it, w)) = 1
-			// <=> 1 <= sum(w, x(kanten_it, w)) <= 1
-			SCIP_CALL( SCIPallocBufferArray(scip, &vars, graph->nwahlkreise) );
-			SCIP_CALL( SCIPallocBufferArray(scip, &vals, graph->nwahlkreise) );
-
-			SCIP_Cons* cons;
-			stringstream name;
-
-			name << "Grad_eins_Zusammenschluss_Kante_" << grad_eins_stadtid << "_" << nachbar_stadtid;;
-
-			for (int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
-			{
-				vals[wk_it] = 1;
-
-				vars[wk_it] = graph->edges[kanten_it].var_v[wk_it];
-			}
-
-			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-					name.str().c_str(),
-					graph->nwahlkreise, vars, vals,
-					1, 1,
-					TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-			SCIP_CALL( SCIPaddCons(scip, cons) );
-			SCIP_CALL( SCIPreleaseCons(scip, &cons) );
-			name.str("");
-
-			SCIPfreeBufferArray(scip, &vars);
-			SCIPfreeBufferArray(scip, &vals);
-
-		}
-
-		if ( grade[n_it] == 2)
-		{
-			// ###############################################################
-			// Knoten mit Grad zwei und Kante gegenüber, diese Kante löschen
-			// ###############################################################
-
-			// existiert eine Kante gegenüber?
-			long int knoten_1_id = graph->nodes[n_it].first_edge->adjac->stadtid;
-			long int knoten_2_id = graph->nodes[n_it].first_edge->next->adjac->stadtid;
-
-			int kanten_it = graph->nedges;
-			for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
-			{
-				if ( graph->edges[e_it].adjac->stadtid == knoten_2_id &&
-						graph->edges[e_it].back->adjac->stadtid == knoten_1_id )
-				{
-					kanten_it = e_it;
-					break;
-				}
-				if ( graph->edges[e_it].adjac->stadtid == knoten_1_id &&
-						graph->edges[e_it].back->adjac->stadtid == knoten_2_id )
-				{
-					kanten_it = e_it;
-					break;
-				}
-			}
-
-			if ( kanten_it != graph->nedges )
-			{
-				// ###############################################################
-				// sum(w, x(kanten_it, w)) = 0
-				// <=> 0 <= sum(w, x(kanten_it, w)) <= 0
-				SCIP_CALL( SCIPallocBufferArray(scip, &vars, graph->nwahlkreise) );
-				SCIP_CALL( SCIPallocBufferArray(scip, &vals, graph->nwahlkreise) );
-
-				SCIP_Cons* cons;
-				stringstream name;
-
-				name << "Grad_zwei_Verbot_Kante_" << knoten_1_id << "_" << knoten_2_id;;
-
-				for (int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
-				{
-					vals[wk_it] = 1;
-
-					vars[wk_it] = graph->edges[kanten_it].var_v[wk_it];
-				}
-
-				SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-						name.str().c_str(),
-						graph->nwahlkreise, vars, vals,
-						0, 0,
-						TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-				SCIP_CALL( SCIPaddCons(scip, cons) );
-				SCIP_CALL( SCIPreleaseCons(scip, &cons) );
-				name.str("");
-
-				SCIPfreeBufferArray(scip, &vars);
-				SCIPfreeBufferArray(scip, &vals);
-
-
-
-			}
-
-
-		}
-
-	}
-
-	// ###############################################################
-	// KANTE 66:
-	// sum(w, x(kanten_it, w)) = 0
-	// <=> 0 <= sum(w, x(kanten_it, w)) <= 0
-	SCIP_CALL( SCIPallocBufferArray(scip, &vars, graph->nwahlkreise) );
-	SCIP_CALL( SCIPallocBufferArray(scip, &vals, graph->nwahlkreise) );
-
-	//SCIP_Cons* cons;
-	stringstream name;
-
-	name << "Grad_zwei_Verbot_Kante_" << graph->edges[66].adjac->stadtid << "_" << graph->edges[66].back->adjac->stadtid;
-
-	for (int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
-	{
-		vals[wk_it] = 1;
-
-		vars[wk_it] = graph->edges[66].var_v[wk_it];
-	}
-
-	SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-			name.str().c_str(),
-			graph->nwahlkreise, vars, vals,
-			0, 0,
-			TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-	SCIP_CALL( SCIPaddCons(scip, cons) );
-	SCIP_CALL( SCIPreleaseCons(scip, &cons) );
-	name.str("");
-
-	SCIPfreeBufferArray(scip, &vars);
-	SCIPfreeBufferArray(scip, &vals);
-
-
-	SCIPfreeBufferArray(scip, &grade);
+//	// ############################################################################################################################
+//	// Preprocessing KNOTENGRADE
+//	// ############################################################################################################################
+//	int* grade;
+//	SCIP_CALL( SCIPallocBufferArray(scip, &grade, graph->nnodes) );
+//	for ( int n_it = 0 ; n_it < graph->nnodes ; ++n_it )
+//	{
+//		int grad = 0;
+//		for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
+//		{
+//			if ( graph->edges[e_it].adjac->stadtid == graph->nodes[n_it].stadtid )
+//				grad++;
+//			if ( graph->edges[e_it].back->adjac->stadtid == graph->nodes[n_it].stadtid )
+//				grad++;
+//		}
+//		grade[n_it] = grad;
+//	}
+//
+//	for (int n_it = 0 ; n_it < graph->nnodes ; ++n_it  )
+//	{
+//		if ( grade[n_it] == 1 && graph->nodes[n_it].bewohner < avg * 0.75)
+//		{
+//			// ##################################################
+//			// Knoten mit Grad eins, mit Nachbar zusammenfassen
+//			// ##################################################
+//			long int grad_eins_stadtid = graph->nodes[n_it].stadtid;
+//			int grad_eins_id = graph->nodes[n_it].id;
+//			long int nachbar_stadtid = graph->nodes[n_it].first_edge->adjac->stadtid;
+//			int nachbar_id = graph->nodes[n_it].first_edge->adjac->id;
+//
+//			long int kanten_it;
+//			for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
+//			{
+//				if ( graph->edges[e_it].adjac->stadtid == grad_eins_stadtid &&
+//						graph->edges[e_it].back->adjac->stadtid == nachbar_stadtid )
+//				{
+//					kanten_it = e_it;
+//					break;
+//				}
+//				if ( graph->edges[e_it].adjac->stadtid == nachbar_stadtid &&
+//						graph->edges[e_it].back->adjac->stadtid == grad_eins_stadtid )
+//				{
+//					kanten_it = e_it;
+//					break;
+//				}
+//			}
+//
+//			// ###############################################################
+//			// y(grad_eins_stadtid , w ) = y(nachbar_stadtid , w ) für alle w
+//			// <=> 0 <= y(grad_eins_stadtid , w ) - y(nachbar_stadtid , w ) <= 0 für alle w
+//			SCIP_CALL( SCIPallocBufferArray(scip, &vars, 2) );
+//			SCIP_CALL( SCIPallocBufferArray(scip, &vals, 2) );
+//			vals[0] = 1;
+//			vals[1] = -1;
+//
+//			for (int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+//			{
+//				SCIP_Cons* cons;
+//				stringstream name;
+//
+//				name << "Grad_eins_Zusammenschluss_" << grad_eins_stadtid << "_" << nachbar_stadtid << "__ " <<wk_it;
+//
+//				vars[0] = graph->nodes[grad_eins_id].var_v[wk_it];
+//				vars[1] = graph->nodes[nachbar_id].var_v[wk_it];
+//
+//				SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+//						name.str().c_str(),
+//						2, vars, vals,
+//						0, 0,
+//						TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+//				SCIP_CALL( SCIPaddCons(scip, cons) );
+//				SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+//				name.str("");
+//			}
+//
+//			SCIPfreeBufferArray(scip, &vars);
+//			SCIPfreeBufferArray(scip, &vals);
+//
+//			// ###############################################################
+//			// sum(w, x(kanten_it, w)) = 1
+//			// <=> 1 <= sum(w, x(kanten_it, w)) <= 1
+//			SCIP_CALL( SCIPallocBufferArray(scip, &vars, graph->nwahlkreise) );
+//			SCIP_CALL( SCIPallocBufferArray(scip, &vals, graph->nwahlkreise) );
+//
+//			SCIP_Cons* cons;
+//			stringstream name;
+//
+//			name << "Grad_eins_Zusammenschluss_Kante_" << grad_eins_stadtid << "_" << nachbar_stadtid;;
+//
+//			for (int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+//			{
+//				vals[wk_it] = 1;
+//
+//				vars[wk_it] = graph->edges[kanten_it].var_v[wk_it];
+//			}
+//
+//			SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+//					name.str().c_str(),
+//					graph->nwahlkreise, vars, vals,
+//					1, 1,
+//					TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+//			SCIP_CALL( SCIPaddCons(scip, cons) );
+//			SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+//			name.str("");
+//
+//			SCIPfreeBufferArray(scip, &vars);
+//			SCIPfreeBufferArray(scip, &vals);
+//
+//		}
+//
+//		if ( grade[n_it] == 2)
+//		{
+//			// ###############################################################
+//			// Knoten mit Grad zwei und Kante gegenüber, diese Kante löschen
+//			// ###############################################################
+//
+//			// existiert eine Kante gegenüber?
+//			long int knoten_1_id = graph->nodes[n_it].first_edge->adjac->stadtid;
+//			long int knoten_2_id = graph->nodes[n_it].first_edge->next->adjac->stadtid;
+//
+//			int kanten_it = graph->nedges;
+//			for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
+//			{
+//				if ( graph->edges[e_it].adjac->stadtid == knoten_2_id &&
+//						graph->edges[e_it].back->adjac->stadtid == knoten_1_id )
+//				{
+//					kanten_it = e_it;
+//					break;
+//				}
+//				if ( graph->edges[e_it].adjac->stadtid == knoten_1_id &&
+//						graph->edges[e_it].back->adjac->stadtid == knoten_2_id )
+//				{
+//					kanten_it = e_it;
+//					break;
+//				}
+//			}
+//
+//			if ( kanten_it != graph->nedges )
+//			{
+//				// ###############################################################
+//				// sum(w, x(kanten_it, w)) = 0
+//				// <=> 0 <= sum(w, x(kanten_it, w)) <= 0
+//				SCIP_CALL( SCIPallocBufferArray(scip, &vars, graph->nwahlkreise) );
+//				SCIP_CALL( SCIPallocBufferArray(scip, &vals, graph->nwahlkreise) );
+//
+//				SCIP_Cons* cons;
+//				stringstream name;
+//
+//				name << "Grad_zwei_Verbot_Kante_" << knoten_1_id << "_" << knoten_2_id;;
+//
+//				for (int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+//				{
+//					vals[wk_it] = 1;
+//
+//					vars[wk_it] = graph->edges[kanten_it].var_v[wk_it];
+//				}
+//
+//				SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+//						name.str().c_str(),
+//						graph->nwahlkreise, vars, vals,
+//						0, 0,
+//						TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+//				SCIP_CALL( SCIPaddCons(scip, cons) );
+//				SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+//				name.str("");
+//
+//				SCIPfreeBufferArray(scip, &vars);
+//				SCIPfreeBufferArray(scip, &vals);
+//
+//
+//
+//			}
+//
+//
+//		}
+//
+//	}
+//
+//	// ###############################################################
+//	// KANTE 66:
+//	// sum(w, x(kanten_it, w)) = 0
+//	// <=> 0 <= sum(w, x(kanten_it, w)) <= 0
+//	SCIP_CALL( SCIPallocBufferArray(scip, &vars, graph->nwahlkreise) );
+//	SCIP_CALL( SCIPallocBufferArray(scip, &vals, graph->nwahlkreise) );
+//
+//	//SCIP_Cons* cons;
+//	stringstream name;
+//
+//	name << "Grad_zwei_Verbot_Kante_" << graph->edges[66].adjac->stadtid << "_" << graph->edges[66].back->adjac->stadtid;
+//
+//	for (int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+//	{
+//		vals[wk_it] = 1;
+//
+//		vars[wk_it] = graph->edges[66].var_v[wk_it];
+//	}
+//
+//	SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+//			name.str().c_str(),
+//			graph->nwahlkreise, vars, vals,
+//			0, 0,
+//			TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+//	SCIP_CALL( SCIPaddCons(scip, cons) );
+//	SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+//	name.str("");
+//
+//	SCIPfreeBufferArray(scip, &vars);
+//	SCIPfreeBufferArray(scip, &vals);
+//
+//
+//	SCIPfreeBufferArray(scip, &grade);
 
 
 	// ############################################################################################################################
@@ -1126,57 +1126,57 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 //	SCIPfreeBufferArray(scip, &d);
 
 
-	// Perl hat WK 0
-	SCIP_CALL( SCIPallocBufferArray(scip, &vars, 1) );
-	SCIP_CALL( SCIPallocBufferArray(scip, &vals, 1) );
-
-	vals[0] = 1;
-
-	//SCIP_Cons* cons;
-	//stringstream name;
-
-	name << "Perl_WK_0";
-
-	vars[0] = graph->nodes[0].var_v[0];
-
-
-	SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-			name.str().c_str(),
-			1, vars, vals,
-			1, 1,
-			TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-	SCIP_CALL( SCIPaddCons(scip, cons) );
-	SCIP_CALL( SCIPreleaseCons(scip, &cons) );
-	name.str("");
-
-	SCIPfreeBufferArray(scip, &vars);
-	SCIPfreeBufferArray(scip, &vals);
-
-	// Gersheim hat WK 1
-	SCIP_CALL( SCIPallocBufferArray(scip, &vars, 1) );
-	SCIP_CALL( SCIPallocBufferArray(scip, &vals, 1) );
-
-	vals[0] = 1;
-
-	//SCIP_Cons* cons;
-	//stringstream name;
-
-	name << "Gersheim_WK_1";
-
-	vars[0] = graph->nodes[39].var_v[1];
-
-
-	SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-			name.str().c_str(),
-			1, vars, vals,
-			1, 1,
-			TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-	SCIP_CALL( SCIPaddCons(scip, cons) );
-	SCIP_CALL( SCIPreleaseCons(scip, &cons) );
-	name.str("");
-
-	SCIPfreeBufferArray(scip, &vars);
-	SCIPfreeBufferArray(scip, &vals);
+//	// Perl hat WK 0
+//	SCIP_CALL( SCIPallocBufferArray(scip, &vars, 1) );
+//	SCIP_CALL( SCIPallocBufferArray(scip, &vals, 1) );
+//
+//	vals[0] = 1;
+//
+//	//SCIP_Cons* cons;
+//	//stringstream name;
+//
+//	name << "Perl_WK_0";
+//
+//	vars[0] = graph->nodes[0].var_v[0];
+//
+//
+//	SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+//			name.str().c_str(),
+//			1, vars, vals,
+//			1, 1,
+//			TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+//	SCIP_CALL( SCIPaddCons(scip, cons) );
+//	SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+//	name.str("");
+//
+//	SCIPfreeBufferArray(scip, &vars);
+//	SCIPfreeBufferArray(scip, &vals);
+//
+//	// Gersheim hat WK 1
+//	SCIP_CALL( SCIPallocBufferArray(scip, &vars, 1) );
+//	SCIP_CALL( SCIPallocBufferArray(scip, &vals, 1) );
+//
+//	vals[0] = 1;
+//
+//	//SCIP_Cons* cons;
+//	//stringstream name;
+//
+//	name << "Gersheim_WK_1";
+//
+//	vars[0] = graph->nodes[39].var_v[1];
+//
+//
+//	SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+//			name.str().c_str(),
+//			1, vars, vals,
+//			1, 1,
+//			TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+//	SCIP_CALL( SCIPaddCons(scip, cons) );
+//	SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+//	name.str("");
+//
+//	SCIPfreeBufferArray(scip, &vars);
+//	SCIPfreeBufferArray(scip, &vals);
 
 	SCIPdebugMessage("verlasse Setup\n");
 

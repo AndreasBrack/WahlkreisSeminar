@@ -5,6 +5,8 @@
  *      Author: andreas
  */
 
+#define KREIS_MAX 			 100
+
 #define SCIP_DEBUG
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
 
@@ -151,7 +153,7 @@ SCIP_Bool findSubtree(
 	SCIP_CALL( SCIPcreateConsLinear(sub_scip, &cons,
 			name.str().c_str(),
 			graph->nnodes, ge3vars, ge3vals,
-			3, SCIPinfinity(sub_scip),
+			3, KREIS_MAX,
 			TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 	SCIP_CALL( SCIPaddCons(sub_scip, cons) );
 	SCIP_CALL( SCIPreleaseCons(sub_scip, &cons) );
@@ -518,7 +520,7 @@ SCIP_RETCODE sepaSubtree(
 		SCIP_CALL( SCIPcreateConsLinear(sub_scip, &cons,
 				name.str().c_str(),
 				graph->nnodes, ge3vars, ge3vals,
-				3, SCIPinfinity(sub_scip),
+				3, KREIS_MAX,
 				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 		SCIP_CALL( SCIPaddCons(sub_scip, cons) );
 		SCIP_CALL( SCIPreleaseCons(sub_scip, &cons) );
@@ -727,14 +729,14 @@ SCIP_RETCODE sepaSubtree(
 
 		SCIPsetObjsense(sub_scip, SCIP_OBJSENSE_MAXIMIZE);
 
-		//SCIPsetObjlimit(sub_scip, -1 + SCIPepsilon(sub_scip));
-		//SCIPsetIntParam(sub_scip, "limits/solutions", 1);
+		SCIPsetObjlimit(sub_scip, -1);
+		SCIPsetIntParam(sub_scip, "limits/solutions", 1);
 
 		SCIPsolve(sub_scip);
 
 		SCIP_SOL* sub_sol = SCIPgetBestSol(sub_scip);
 
-		//std::cout << "Zielfunktwerkt:"
+		//std::cout << "Zielfunktwerkt: " << SCIPgetPrimalbound(sub_scip) << std::endl;
 
 
 
@@ -753,33 +755,104 @@ SCIP_RETCODE sepaSubtree(
 				}
 			}
 			rhs --;
+//			for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it )
+//			{
+				SCIP_CALL( SCIPallocBufferArray(scip, &vars, (rhs+1)*graph->nwahlkreise) );
+				SCIP_CALL( SCIPallocBufferArray(scip, &vals, (rhs+1)*graph->nwahlkreise) );
 
-			SCIP_ROW* row;
-			SCIP_CALL( SCIPcreateEmptyRowCons(scip, &row, conshdlr, "sepa_subtree", - SCIPinfinity(scip), rhs, FALSE, FALSE, TRUE) );
-			SCIP_CALL( SCIPcacheRowExtensions(scip, row) );
-
-			for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
-			{
-				if ( SCIPisEQ(sub_scip, SCIPgetSolVal(sub_scip, sub_sol, z_vars[e_it]), 1)  )
+				for ( int it = 0 ; it < (rhs+1)*graph->nwahlkreise ; ++it )
 				{
-					for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it )
+					vals[it] = 1;
+				}
+
+				SCIP_Cons* cons;
+				stringstream name;
+
+				name << "Subtreecons_"  ;
+
+				int var_it = 0;
+
+				for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
+				{
+					if ( SCIPisEQ(sub_scip, SCIPgetSolVal(sub_scip, sub_sol, z_vars[e_it]), 1)  )
 					{
-						SCIP_CALL( SCIPaddVarToRow(scip, row, graph->edges[e_it].var_v[wk_it], 1) );
+						for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it )
+						{
+							vars[var_it] = graph->edges[e_it].var_v[wk_it];
+							var_it++;
+						}
 					}
 				}
-			}
-			SCIP_CALL( SCIPflushRowExtensions(scip, row) );
 
-			if ( SCIPisCutEfficacious(scip, sol, row) )
-			{
-				SCIP_CALL( SCIPaddCut(scip, sol, row, FALSE) );
-				*result = SCIP_SEPARATED;
-			}
-			SCIP_CALL( SCIPreleaseRow(scip, &row) );
+				SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+						name.str().c_str(),
+						(rhs+1)*graph->nwahlkreise, vars, vals,
+						- SCIPinfinity(scip), rhs,
+						TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+				SCIP_CALL( SCIPaddCons(scip, cons) );
+				//SCIPprintCons(scip, cons, NULL);
+				//string temp;
+				//std::cin >> temp;
+
+				//std::cout << "#######addcons" << std::endl;
+
+				*result = SCIP_CONSADDED; //SCIP_SEPARATED;
+				SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+				name.str("");
+
+				SCIPfreeBufferArray(scip, &vars);
+				SCIPfreeBufferArray(scip, &vals);
+
+
+//				SCIP_ROW* row;
+//				SCIP_CALL( SCIPcreateEmptyRowCons(scip, &row, conshdlr, "sepa_subtree", - SCIPinfinity(scip), rhs, FALSE, FALSE, TRUE) );
+//				SCIP_CALL( SCIPcacheRowExtensions(scip, row) );
+//
+//				for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
+//				{
+//					if ( SCIPisEQ(sub_scip, SCIPgetSolVal(sub_scip, sub_sol, z_vars[e_it]), 1)  )
+//					{
+//						//for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it )
+//						SCIP_CALL( SCIPaddVarToRow(scip, row, graph->edges[e_it].var_v[wk_it], 1) );
+//					}
+//				}
+//				SCIP_CALL( SCIPflushRowExtensions(scip, row) );
+//
+//				if ( SCIPisCutEfficacious(scip, sol, row) )
+//				{
+//					SCIP_CALL( SCIPaddCut(scip, sol, row, FALSE) );
+//					//SCIPprintRow(scip, row, NULL);
+//					//std::cout << "cut hinzugefügt" << std::endl;
+//					*result = SCIP_SEPARATED;
+//				}
+//				SCIP_CALL( SCIPreleaseRow(scip, &row) );
+//
+//				//SCIP_ROW* row;
+//				SCIP_CALL( SCIPcreateEmptyRowCons(scip, &row, conshdlr, "sepa_subtree", - SCIPinfinity(scip), rhs, FALSE, FALSE, TRUE) );
+//				SCIP_CALL( SCIPcacheRowExtensions(scip, row) );
+//
+//				for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
+//				{
+//					if ( SCIPisEQ(sub_scip, SCIPgetSolVal(sub_scip, sub_sol, z_vars[e_it]), 1)  )
+//					{
+//						for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it )
+//						SCIP_CALL( SCIPaddVarToRow(scip, row, graph->edges[e_it].var_v[wk_it], 1) );
+//					}
+//				}
+//				SCIP_CALL( SCIPflushRowExtensions(scip, row) );
+//
+//				if ( SCIPisCutEfficacious(scip, sol, row) )
+//				{
+//					SCIP_CALL( SCIPaddCut(scip, sol, row, FALSE) );
+//					//SCIPprintRow(scip, row, NULL);
+//					//std::cout << "cut hinzugefügt" << std::endl;
+//					*result = SCIP_SEPARATED;
+//				}
+//				SCIP_CALL( SCIPreleaseRow(scip, &row) );
+		//	}
 		}else{
 			*result = SCIP_DIDNOTFIND;
 		}
-
 
 
 
@@ -990,11 +1063,19 @@ SCIP_DECL_CONSENFOLP(ConshdlrSubtree::scip_enfolp)
 //		G = consdata->G;
 		assert(G != NULL);
 
+		conshdlr = SCIPfindConshdlr(scip, "subtree");
+		if( conshdlr == NULL )
+		{
+			SCIPerrorMessage("subtree constraint handler not found\n");
+			return SCIP_PLUGINNOTFOUND;
+		}
+
 		found = findSubtree(scip, G, NULL);
 
 		// if a subtree was found, we generate a cut constraint saying that there must be at least two outgoing edges
 		if( found )
-			*result = SCIP_INFEASIBLE;
+			SCIP_CALL(sepaSubtree(scip, conshdlr, G, NULL, result));
+			//*result = SCIP_INFEASIBLE;
 	}
 
 	return SCIP_OKAY;
@@ -1101,10 +1182,19 @@ SCIP_DECL_CONSCHECK(ConshdlrSubtree::scip_check)
 //		G = consdata->G;
 		assert(G != NULL);
 
+		conshdlr = SCIPfindConshdlr(scip, "subtree");
+		if( conshdlr == NULL )
+		{
+			SCIPerrorMessage("subtree constraint handler not found\n");
+			return SCIP_PLUGINNOTFOUND;
+		}
+
+
 		// if a subtree is found, the solution must be infeasible
 		found = findSubtree(scip, G, sol);
 		if( found )
 		{
+			sepaSubtree(scip, conshdlr, G, sol, result);
 			*result = SCIP_INFEASIBLE;
 			if( printreason )
 			{
@@ -1322,7 +1412,7 @@ SCIP_RETCODE tree::SCIPcreateConsSubtree(
 		SCIP_Bool             removable           /**< should the constraint be removed from the LP due to aging or cleanup? */
 )
 {
-	//SCIPdebugMessage("beginne SCIPcreateConsSubtree\n");
+	SCIPdebugMessage("beginne SCIPcreateConsSubtree\n");
 	SCIP_CONSHDLR* conshdlr = NULL;
 	SCIP_CONSDATA* consdata = NULL;
 
