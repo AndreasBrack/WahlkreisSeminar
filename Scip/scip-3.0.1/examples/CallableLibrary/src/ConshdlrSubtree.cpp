@@ -880,6 +880,8 @@ SCIP_RETCODE sepaSubtree(
 						- SCIPinfinity(scip), rhs,
 						TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 				SCIP_CALL( SCIPaddCons(scip, cons) );
+
+
 				//SCIPprintCons(scip, cons, NULL);
 				//string temp;
 				//std::cin >> temp;
