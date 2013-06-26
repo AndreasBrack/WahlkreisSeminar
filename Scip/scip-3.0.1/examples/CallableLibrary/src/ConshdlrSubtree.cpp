@@ -893,52 +893,52 @@ SCIP_RETCODE sepaSubtree(
 				SCIPfreeBufferArray(scip, &vars);
 				SCIPfreeBufferArray(scip, &vals);
 
-				// für die einzelnen WK
-				for (int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
-				{
-					SCIP_CALL( SCIPallocBufferArray(scip, &vars, (rhs+1)) );
-					SCIP_CALL( SCIPallocBufferArray(scip, &vals, (rhs+1)) );
-
-					for ( int it = 0 ; it < (rhs+1) ; ++it )
-					{
-						vals[it] = 1;
-					}
-
-					SCIP_Cons* cons;
-					stringstream name;
-
-					name << "Subtreecons_"<< wk_it  ;
-
-					int var_it = 0;
-
-					for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
-					{
-						if ( SCIPisEQ(sub_scip, SCIPgetSolVal(sub_scip, sub_sol, z_vars[e_it]), 1)  )
-						{
-								vars[var_it] = graph->edges[e_it].var_v[wk_it];
-								var_it++;
-						}
-					}
-
-					SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
-							name.str().c_str(),
-							(rhs+1), vars, vals,
-							- SCIPinfinity(scip), rhs,
-							TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
-					SCIP_CALL( SCIPaddCons(scip, cons) );
-					//SCIPprintCons(scip, cons, NULL);
-					//string temp;
-					//std::cin >> temp;
-
-					//std::cout << "#######addcons" << std::endl;
-
-					*result = SCIP_CONSADDED; //SCIP_SEPARATED;
-					SCIP_CALL( SCIPreleaseCons(scip, &cons) );
-					name.str("");
-
-					SCIPfreeBufferArray(scip, &vars);
-					SCIPfreeBufferArray(scip, &vals);
-				}
+//				// für die einzelnen WK
+//				for (int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+//				{
+//					SCIP_CALL( SCIPallocBufferArray(scip, &vars, (rhs+1)) );
+//					SCIP_CALL( SCIPallocBufferArray(scip, &vals, (rhs+1)) );
+//
+//					for ( int it = 0 ; it < (rhs+1) ; ++it )
+//					{
+//						vals[it] = 1;
+//					}
+//
+//					SCIP_Cons* cons;
+//					stringstream name;
+//
+//					name << "Subtreecons_"<< wk_it  ;
+//
+//					int var_it = 0;
+//
+//					for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
+//					{
+//						if ( SCIPisEQ(sub_scip, SCIPgetSolVal(sub_scip, sub_sol, z_vars[e_it]), 1)  )
+//						{
+//								vars[var_it] = graph->edges[e_it].var_v[wk_it];
+//								var_it++;
+//						}
+//					}
+//
+//					SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+//							name.str().c_str(),
+//							(rhs+1), vars, vals,
+//							- SCIPinfinity(scip), rhs,
+//							TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+//					SCIP_CALL( SCIPaddCons(scip, cons) );
+//					//SCIPprintCons(scip, cons, NULL);
+//					//string temp;
+//					//std::cin >> temp;
+//
+//					//std::cout << "#######addcons" << std::endl;
+//
+//					*result = SCIP_CONSADDED; //SCIP_SEPARATED;
+//					SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+//					name.str("");
+//
+//					SCIPfreeBufferArray(scip, &vars);
+//					SCIPfreeBufferArray(scip, &vals);
+//				}
 
 
 //				SCIP_ROW* row;
