@@ -39,7 +39,7 @@ for line in f:
 
 find = 0	
 f.close
-f  = open('Scip_Solution')
+f  = open('../Scip_Solution')
 for line in f:
 	if re.search('solution status:',line):
 		find = 1
@@ -75,6 +75,8 @@ for i in range(len(wahlkreise)):
 	for j in range(6):
 		s += str(random.randint(0,9))
 	colorlist.append(s)
+	
+colorlist = ['00FF00','0000FF','FF0000','FFFF00','00FFFF','FF00FF','000080','006400','6495ED','FF1493','CD5C5C','483D8B','556B2F','20B2AA','9932CC','DAA520','B22222','32CD32','8470FF','0000FF','00FF7F','4682B4']
 
 #sKreise = sorted(kreise)
 #minKreis = sKreise[0] 

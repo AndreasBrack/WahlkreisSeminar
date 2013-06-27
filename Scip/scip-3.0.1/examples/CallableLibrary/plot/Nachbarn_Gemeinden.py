@@ -28,12 +28,13 @@ while provider.nextFeature(feat):
   name = attrmap[provider.fieldNameIndex(name_field)].toString()
   gf = attrmap[provider.fieldNameIndex('GF')].toInt()[0]
   rs = attrmap[provider.fieldNameIndex('RS')].toString()
+  des = attrmap[provider.fieldNameIndex('DES')].toString()
   bld_nr = int(rs[0:2]) # Bundesland
   kreis_nr = int(rs[3:5]) # Kreis
   geom = feat.geometry()
   wkb = geom.asWkb()
   polygon = loads(wkb)
-  if gf==4: #and bld_nr==10:  #Landmasse und Saarland
+  if gf==4 and 'Gemeindefreies Gebiet' not in des:
     polygon_dict[feature_id] = [ polygon, name, bld_nr, rs]
 
 # Now one-by-one take a feature and find all other features that touch its

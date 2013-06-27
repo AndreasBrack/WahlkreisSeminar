@@ -36,7 +36,7 @@ zaehler = 0
 for line in g:
 	line = line.replace('\n','').split(',')
 	if line[0] not in gemeinden.keys():
-		print 'Gemeinde ' + line[1] + ' mit Nummer ' + line[0] + ' kein Matching!\n'
+		#print 'Gemeinde ' + line[1] + ' mit Nummer ' + line[0] + ' kein Matching!\n'
 		zaehler += 1
 	else:
 		akt_bld = line[1]
