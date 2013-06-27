@@ -37,7 +37,6 @@ using namespace tree;
 using namespace scip;
 using namespace std;
 
-
 /** parses the node list */
 void ReaderWP::getNodesFromFile(
 		SCIP*			   scip,
@@ -852,6 +851,54 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	SCIP_CALL( SCIPreleaseCons(scip, &cons) );
 
 
+
+	//	###########################################################################################################################
+	//	 SYMMETRIE BREAKER
+	// 	 Wahlkreis w-1 hat mehr Einwohner als w für alle w = 1,...,nwk
+	//	 Für alle wk = 1 bis nwk
+	// 	          sum(p_{i} *  y_{i,w}, i in Staedte) <= sum(p_{i} *  y_{i,w-1}, i in Staedte)
+	//   <=> 0 <= sum(p_{i} *  y_{i,w-1} + sum( - p_{i} *  y_{i,w}, i in Staedte)
+	//	###########################################################################################################################
+
+
+	SCIP_CALL( SCIPallocBufferArray(scip, &vars, 2 * graph->nnodes) );
+	SCIP_CALL( SCIPallocBufferArray(scip, &vals, 2 * graph->nnodes) );
+
+
+	for(int st = 0; st < graph->nnodes; st++)
+	{
+		vals[ st				 ] =   graph->nodes[st].bewohner;
+		vals[ st + graph->nnodes ] = - graph->nodes[st].bewohner;
+	}
+
+	for (int wk_it = 1 ; wk_it < graph->nwahlkreise ; ++wk_it)
+	{
+		SCIP_Cons* cons;
+		stringstream name;
+
+		name << "Symbreaker:p(" << wk_it-1 << ") <= p("<<wk_it<<")";
+
+		for(int st = 0; st < graph->nnodes; st++)
+		{
+			vars[ st				 ] = graph->nodes[st].var_v[ wk_it - 1 ];
+			vars[ st + graph->nnodes ] = graph->nodes[st].var_v[ wk_it     ];
+		}
+
+		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+				name.str().c_str(),
+				2 * graph->nnodes, vars, vals,
+				0, SCIPinfinity(scip),
+				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+		SCIP_CALL( SCIPaddCons(scip, cons) );
+		SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+		name.str("");
+	}
+
+	SCIPfreeBufferArray(scip, &vars);
+	SCIPfreeBufferArray(scip, &vals);
+
+
+
 //	// ############################################################################################################################
 //	// Preprocessing KNOTENGRADE
 //	// ############################################################################################################################
@@ -1178,9 +1225,9 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 //	SCIP_CALL( SCIPaddCons(scip, cons) );
 //	SCIP_CALL( SCIPreleaseCons(scip, &cons) );
 //	name.str("");
-
-	SCIPfreeBufferArray(scip, &vars);
-	SCIPfreeBufferArray(scip, &vals);
+//
+//	SCIPfreeBufferArray(scip, &vars);
+//	SCIPfreeBufferArray(scip, &vals);
 
 	SCIPdebugMessage("verlasse Setup\n");
 
