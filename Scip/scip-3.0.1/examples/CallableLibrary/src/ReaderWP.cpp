@@ -851,6 +851,88 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	SCIP_CALL( SCIPaddCons(scip, cons) );
 	SCIP_CALL( SCIPreleaseCons(scip, &cons) );
 
+	// ############################################################################################################################
+	// # Kreisungleichungen aus Preprocessing Datei einlesen
+	// # sum(i,j in E, w in W) x(i,j,w) <= /S/ -1 für jeden Kreis aus der Datei Preprocessing_Finding_Cycles.dat
+	// ############################################################################################################################
+	fstream f;
+	f.open("Preprocessing_Finding_Cycles.dat");
+
+	string cycle_anzahl_string;
+	int cycle_anzahl;
+
+	string cycle_size_string;
+	int cycle_size;
+	string cycle_akt_node1_string;
+	string cycle_akt_node2_string;
+
+	long int cycle_akt_node1;
+	long int cycle_akt_node2;
+
+	getline(f, cycle_anzahl_string, ',');
+	cycle_anzahl = atol(cycle_anzahl_string.c_str());
+
+	for ( int c = 0 ; c < cycle_anzahl ; ++c )
+	{
+		getline(f, cycle_size_string, ',');
+		cycle_size = atol(cycle_size_string.c_str());
+
+
+		SCIP_CALL( SCIPallocBufferArray(scip, &vars, cycle_size * graph->nwahlkreise) );
+		SCIP_CALL( SCIPallocBufferArray(scip, &vals, cycle_size * graph->nwahlkreise) );
+
+		for (int it = 0 ; it < cycle_size * graph->nwahlkreise ; ++it)
+			vals[it] = 1;
+
+		SCIP_Cons* cons;
+		stringstream name;
+
+		name << "Kreis_Cons_No_" << c << "_Size_" << cycle_size;
+
+
+		int var_it = 0;
+		for ( int i = 0 ; i < cycle_size ; ++i )
+		{
+			getline(f, cycle_akt_node1_string, ',');
+			getline(f, cycle_akt_node2_string, ',');
+
+			cycle_akt_node1 = atol(cycle_akt_node1_string.c_str());
+			cycle_akt_node2 = atol(cycle_akt_node2_string.c_str());
+
+			for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it)
+				if ( ( graph->edges[e_it].adjac->stadtid == cycle_akt_node1 &&
+					   graph->edges[e_it].back->adjac->stadtid == cycle_akt_node2)
+						||
+					  ( graph->edges[e_it].adjac->stadtid == cycle_akt_node2 &&
+						graph->edges[e_it].back->adjac->stadtid == cycle_akt_node1))
+				{
+					for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it)
+					{
+						vars[var_it] = graph->edges[e_it].var_v[wk_it];
+						var_it++;
+					}
+				}
+
+		}
+
+		SCIP_CALL( SCIPcreateConsLinear(scip, &cons,
+				name.str().c_str(),
+				cycle_size * graph->nwahlkreise, vars, vals,
+				- SCIPinfinity(scip), cycle_size - 1,
+				TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
+		SCIP_CALL( SCIPaddCons(scip, cons) );
+		SCIP_CALL( SCIPreleaseCons(scip, &cons) );
+		name.str("");
+
+
+		SCIPfreeBufferArray(scip, &vars);
+		SCIPfreeBufferArray(scip, &vals);
+
+	}
+
+	f.close();
+
+
 
 //	// ############################################################################################################################
 //	// Preprocessing KNOTENGRADE
@@ -1179,8 +1261,8 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 //	SCIP_CALL( SCIPreleaseCons(scip, &cons) );
 //	name.str("");
 
-	SCIPfreeBufferArray(scip, &vars);
-	SCIPfreeBufferArray(scip, &vals);
+//	SCIPfreeBufferArray(scip, &vars);
+//	SCIPfreeBufferArray(scip, &vals);
 
 	SCIPdebugMessage("verlasse Setup\n");
 
