@@ -6,7 +6,7 @@
  */
 
 
-#define SCIP_DEBUG
+//#define SCIP_DEBUG
 
 #include "heurvoronoi.h"
 
@@ -30,23 +30,27 @@ using namespace tree;
 using namespace scip;
 using namespace std;
 
-#define NUMOUTROUNDS 5
+#define NUMOUTROUNDS 50
 #define NUMINROUNDS  10
-#define UEBERKREIS	 4
+#define UEBERKREIS	 2
 
 
 /*
  * Local methods
  */
 
-SCIP_Real getabs(GRAPHNODE* n1, GRAPHNODE* n2)
+SCIP_Real getabs(SCIP* scip, GRAPHNODE* n1, GRAPHNODE* n2)
 {
 //	SCIPdebugMessage("Abstand von %d und %d ist %f\n",
 //			(int) n1->stadtid, (int) n2->stadtid, sqrt( pow( n1->x - n2->x, 2) + pow( n1->y - n2->y, 2) ));
 //
 //	SCIPdebugMessage("Id: %d, x: %f, y: %f\n", (int) n1->stadtid, n1->x, n1->y);
 
-	return sqrt( pow( n1->x - n2->x, 2) + pow( n1->y - n2->y, 2) ) / 10000;
+	SCIP_Real retval = sqrt( pow( n1->x - n2->x, 2) + pow( n1->y - n2->y, 2) ) / 100;
+
+	assert((n1->id == n2->id) == SCIPisEQ(scip, retval, 0));
+
+	return retval;
 }
 
 /** destructor of primal heuristic to free user data (called when SCIP is exiting) */
@@ -121,7 +125,7 @@ GRAPHNODE* getCenter(
 	{
 		SCIP_Real dist = 0;
 		for( vector<GRAPHNODE*>::iterator nit2 = nodes.begin(); nit2 != nodes.end(); ++nit2 )
-			dist += pow( getabs(*nit, *nit2) * (*nit2)->bewohner / 1000, 2);
+			dist += pow( getabs(scip, *nit, *nit2) * (*nit2)->bewohner  / 10, 2);
 
 		if( SCIPisLT(scip, dist, mindist) )
 		{
@@ -143,9 +147,12 @@ SCIP_RETCODE AlgvonPrim(
 		SCIP_SOL*			sol,
 		GRAPH*				graph,
 		vector<GRAPHNODE*>	nodes,
-		int					wknr
+		int					wknr,
+		SCIP_RESULT*		result
 )
 {
+	assert(result != NULL);
+	*result = SCIP_DIDNOTRUN;
 	assert(scip != NULL);
 	assert(graph != NULL);
 	assert(wknr >= 0);
@@ -157,7 +164,7 @@ SCIP_RETCODE AlgvonPrim(
 		assert( SCIPisEQ(scip, SCIPgetSolVal(scip, sol, (*nit)->var_v[wknr]), 1) );
 
 
-	//SCIPdebugMessage("Aufruf von Prims Algorithmus zur Wahlkreisnummer %d \n", wknr);
+	SCIPdebugMessage("Aufruf von Prims Algorithmus zur Wahlkreisnummer %d \n", wknr);
 
 	int gesnodes 	= graph->nnodes;
 	int nnodes 		= (int) nodes.size();
@@ -170,7 +177,7 @@ SCIP_RETCODE AlgvonPrim(
 	for(vector<GRAPHNODE*>::iterator nit = nodes.begin(); nit != nodes.end(); ++nit )
 	{
 		assert( SCIPisEQ(scip, SCIPgetSolVal(scip, sol, (*nit)->var_v[wknr]), 1) );
-		//SCIPdebugMessage("Knoten %d ist in S enthalten.\n", (int) (*nit)->stadtid);
+		SCIPdebugMessage("Knoten %d ist in S enthalten.\n", (int) (*nit)->stadtid);
 
 		(*nit)->primfound = TRUE;
 	}
@@ -183,7 +190,7 @@ SCIP_RETCODE AlgvonPrim(
 			assert( SCIPisEQ(scip, SCIPgetSolVal(scip, sol, graph->nodes[i].var_v[wknr]), 0) );
 	}
 
-	/* bereiten eine Menge an Kanten vor. Nur wenn beide Knoten im Untterbaum Liegen, betrachten wir die Kante weiter */
+	/* bereiten eine Menge an Kanten vor. Nur wenn beide Knoten im Unterbaum liegen, betrachten wir die Kante weiter */
 	vector<GRAPHEDGE*> edges;
 	for(int i = 0; i < graph->nedges; i++ )
 	{
@@ -191,6 +198,9 @@ SCIP_RETCODE AlgvonPrim(
 		{
 			assert( SCIPisEQ( scip, SCIPgetSolVal(scip, sol, graph->edges[i].adjac->var_v[wknr]), 1) );
 			assert( SCIPisEQ( scip, SCIPgetSolVal(scip, sol, graph->edges[i].back->adjac->var_v[wknr]), 1) );
+
+			SCIPdebugMessage("Kante von %d nach %d\n",
+					(int) graph->edges[i].adjac->stadtid, (int) graph->edges[i].back->adjac->stadtid);
 
 			edges.push_back( &(graph->edges[i]) );
 		}
@@ -210,7 +220,7 @@ SCIP_RETCODE AlgvonPrim(
 	/* Prims Loop */
 	while( nfound < nnodes )
 	{
-		GRAPHEDGE* e 	= NULL;
+		GRAPHEDGE* e = NULL;
 
 		for(vector<GRAPHEDGE*>::iterator eit = edges.begin(); eit != edges.end(); ++eit )
 			/* Suche eine mit einem gefundenen und einem neuen Knoten */
@@ -222,10 +232,19 @@ SCIP_RETCODE AlgvonPrim(
 					break;
 			}
 
+		if( e == NULL )
+		{
+			for(vector<GRAPHNODE*>::iterator nit = nodes.begin(); nit != nodes.end(); ++nit )
+			{
+				if (! ((*nit)->primfound) )
+					SCIPerrorMessage("Isolierte Stadt: %d\n", (*nit)->stadtid );
+			}
+			return SCIP_OKAY;
+		}
 		/* Ansonsten warten wir einfach, bis alle Kanten durchgelaufen sind und fügen sie dann hinzu */
 		assert( e != NULL );
 
-		//SCIPdebugMessage("1: %d, 2: %d\n", (int) e->adjac->stadtid, (int) e->back->adjac->stadtid);
+		SCIPdebugMessage("1: %d, 2: %d\n", (int) e->adjac->stadtid, (int) e->back->adjac->stadtid);
 
 		assert( SCIPisEQ( scip, SCIPgetSolVal(scip, sol, e->adjac->var_v[wknr]), 1) );
 		assert( SCIPisEQ( scip, SCIPgetSolVal(scip, sol, e->back->adjac->var_v[wknr]), 1) );
@@ -248,6 +267,7 @@ SCIP_RETCODE AlgvonPrim(
 	assert( nfound == nnodes );
 
 	SCIPdebugMessage("Prim beendet\n");
+	*result = SCIP_SUCCESS;
 	return SCIP_OKAY;
 }
 
@@ -272,6 +292,7 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 
 	for( int i = 0; i < nwk; i++ )
 	{
+		SCIPdebugMessage("Knoten %d ist Center von wk %d\n", (int) graph->nodes[i].stadtid, i);
 		S.push_back(&(graph->nodes[i]));
 	}
 
@@ -284,6 +305,7 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 //		SCIPdebugMessage("d[%d] = %f\n", i, d[i]);
 
 	vector<vector<GRAPHNODE*> > P;
+	P.resize(nwk);
 
 	for(int outerrounds = 0; outerrounds < NUMOUTROUNDS; outerrounds++)
 	{
@@ -293,8 +315,9 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 			for(int j = 0; j < nwk; j++)
 			{
 				/* Abstände nach Kreis id gewichtet :) */
-				d[j * nnodes + i] = getabs(S[j], &(graph->nodes[i])) * ((S[j]->kreisid == graph->nodes[i].kreisid) ? 1 : UEBERKREIS) ;
-				//SCIPdebugMessage("d[%d] = %f\n", j * nnodes + i, d[j * nnodes + i]);
+				d[j * nnodes + i] = getabs(scip, S[j], &(graph->nodes[i])) /* * ((S[j]->kreisid == graph->nodes[i].kreisid) ? 1 : UEBERKREIS) */;
+				SCIPdebugMessage("Abstand von Knoten %d zum Centerknoten %d ist d[%d] = %f\n",
+						(int) graph->nodes[i].stadtid, (int) S[j]->stadtid, j * nnodes + i, d[j * nnodes + i]);
 			}
 		}
 
@@ -309,8 +332,8 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 
 			SCIPdebugMessage(" Innerrounds = %d\n", innerrounds);
 			/*Partition for this round*/
-			P.clear();
-			P.resize(nwk);
+			for(int wk = 0; wk < nwk; wk++)
+				P[wk].clear();
 
 			for(int i = 0; i < nwk; i++)
 				p[i] = 0;
@@ -335,13 +358,19 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 					}
 				}
 
-				assert( mini != -1 );
+				SCIPdebugMessage("Minimaler Abstand von Knoten %d zum Centerknoten %d ist = %f\n",
+						(int) graph->nodes[i].stadtid, (int) S[mini]->stadtid, minv);
+
+				assert( mini >= 0 );
+				assert( mini < nwk);
 				p[mini] += graph->nodes[i].bewohner;
 				z[i] = mini;
 
 				P[mini].push_back(&(graph->nodes[i]));
-
 			}
+
+			for(int wk = 0; wk < nwk; wk++)
+				assert(P[wk].size() > 0);
 
 			for(int i = 0; i < nnodes; i++)
 			{
@@ -374,18 +403,21 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 			S.push_back( getCenter(scip, graph, P[wk]) );
 
 
+		double p2 [nnodes];
+		for(int i = 0; i < nnodes; i++)
+			p2[i] = p[i] + i * 0.001;
+
 		int u  [nwk];				/* Umordnungsvariable */
 		for(int wk = 0; wk < nwk; wk++)
 		{
 			/* zählen die echt größeren Wahlkreise als wk */
 			int a = 0;
-			for(int i = 0; i< nwk; i++)
-				if( p[i] > p[wk] )
+			for(int i = 0; i < nwk; i++)
+				if( p2[i] > p2[wk] )
 					a++;
-				else if(p[i] == p[wk] && i != wk)
+				else if(p2[i] == p2[wk] && i != wk)
 				{
-					SCIPmessagePrintError("Unschöner Fall in Heuristic\n");
-					return SCIP_ERROR;
+					SCIPmessagePrintError("Dieser Fall kann nicht mehr sein! :-D\n");
 				}
 			u[wk] = a;
 			SCIPdebugMessage("p[%d] = %d\n", wk, p[wk]);
@@ -460,19 +492,26 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 			}
 
 		/* x vars */
-		for(int wk = 0; wk < nwk; wk++)
-			SCIP_CALL( AlgvonPrim(scip, newsol, graph, P[wk], u[wk]) );
-#ifdef SCIP_DEBUG
-		//SCIPprintSol(scip, newsol, NULL, FALSE);
-#endif
-		SCIPtrySol(scip, newsol, TRUE, TRUE, TRUE, TRUE, &stored);
+		SCIP_RESULT subres = SCIP_SUCCESS;
+		for(int wk = 0; wk < nwk && (subres == SCIP_SUCCESS); wk++)
+			SCIP_CALL( AlgvonPrim(scip, newsol, graph, P[wk], u[wk], &subres) );
 
-		if(stored)
+		if(subres != SCIP_SUCCESS)
 		{
-			SCIPdebugMessage("Solution found\n");
-			*result = SCIP_FOUNDSOL;
+			//SCIPerrorMessage("Isolated Vertex in Voronoi Set.\n");
+			SCIPdebugMessage("Isolated Vertex in Voronoi Set.\n");
 		}
+		else
+		{
+			//SCIPprintSol(scip, newsol, NULL, FALSE);
+			SCIPtrySol(scip, newsol, FALSE, TRUE, TRUE, TRUE, &stored);
 
+			if(stored)
+			{
+				SCIPdebugMessage("Solution found\n");
+				*result = SCIP_FOUNDSOL;
+			}
+		}
 		SCIP_CALL( SCIPfreeSol(scip, &newsol) );
 	}
 
