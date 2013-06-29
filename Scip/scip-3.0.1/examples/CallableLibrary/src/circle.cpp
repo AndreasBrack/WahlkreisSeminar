@@ -73,7 +73,7 @@ SCIP_RETCODE runCircle(
 	SCIP_CALL( SCIPincludeObjReader(scip, new ReaderWP(scip), TRUE) );
 	SCIP_CALL( SCIPincludeObjConshdlr(scip, new ConshdlrSubtree(scip), TRUE) );
 	SCIP_CALL( SCIPincludeObjEventhdlr(scip, new EventhdlrNewSol(scip), TRUE) );
-	SCIP_CALL( SCIPincludeObjHeur(scip, new heur_voronoi(scip), TRUE) );
+	//SCIP_CALL( SCIPincludeObjHeur(scip, new heur_voronoi(scip), TRUE) );
 
 	SCIP_CALL( SCIPincludeDefaultPlugins(scip) );
 

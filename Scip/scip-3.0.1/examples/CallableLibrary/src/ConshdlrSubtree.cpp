@@ -5,7 +5,7 @@
  *      Author: andreas
  */
 
-#define KREIS_MAX 			 100
+#define KREIS_MAX 			 1000
 
 #define SCIP_DEBUG
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
@@ -880,11 +880,20 @@ SCIP_RETCODE sepaSubtree(
 						- SCIPinfinity(scip), rhs,
 						TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 				SCIP_CALL( SCIPaddCons(scip, cons) );
+				//SCIP_CALL( SCIPaddCut(scip, sol, cons, FALSE) );
 
 
-				//SCIPprintCons(scip, cons, NULL);
-				//string temp;
-				//std::cin >> temp;
+//				FILE * pFile;
+//				pFile = fopen ("cuts.txt" , "a");
+//				SCIPprintSol(scip, sol, pFile, FALSE);
+//
+//				SCIPprintCons(scip, cons, pFile);
+//				fclose (pFile);
+//
+//				//exit(-1);
+//				SCIPcheckCons(scip, cons, sol, FALSE, FALSE, TRUE, result);
+//				string temp;
+//				std::cin >> temp;
 
 				//std::cout << "#######addcons" << std::endl;
 

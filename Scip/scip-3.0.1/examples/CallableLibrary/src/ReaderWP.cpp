@@ -851,15 +851,13 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	SCIP_CALL( SCIPaddCons(scip, cons) );
 	SCIP_CALL( SCIPreleaseCons(scip, &cons) );
 
-	// ############################################################################################################################
-	// # Kreisungleichungen aus Preprocessing Datei einlesen
-	// # sum(i,j in E, w in W) x(i,j,w) <= /S/ -1 für jeden Kreis aus der Datei Preprocessing_Finding_Cycles.dat
-	// ############################################################################################################################
+//	// ############################################################################################################################
+//	// # Kreisungleichungen aus Preprocessing Datei einlesen
+//	// # sum(i,j in E, w in W) x(i,j,w) <= /S/ -1 für jeden Kreis aus der Datei Preprocessing_Finding_Cycles.dat
+//	// ############################################################################################################################
 	fstream f;
-	f.open("Preprocessing_Finding_Cycles.dat");
+	f.open("plot/Preprocessing_Finding_Cycles.dat");
 
-	string cycle_anzahl_string;
-	int cycle_anzahl;
 
 	string cycle_size_string;
 	int cycle_size;
@@ -869,13 +867,13 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 	long int cycle_akt_node1;
 	long int cycle_akt_node2;
 
-	getline(f, cycle_anzahl_string, ',');
-	cycle_anzahl = atol(cycle_anzahl_string.c_str());
-
-	for ( int c = 0 ; c < cycle_anzahl ; ++c )
+	while ( true )
 	{
 		getline(f, cycle_size_string, ',');
 		cycle_size = atol(cycle_size_string.c_str());
+
+		if ( cycle_size == 0)
+			break;
 
 
 		SCIP_CALL( SCIPallocBufferArray(scip, &vars, cycle_size * graph->nwahlkreise) );
@@ -887,7 +885,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 		SCIP_Cons* cons;
 		stringstream name;
 
-		name << "Kreis_Cons_No_" << c << "_Size_" << cycle_size;
+		name << "Kreis_Cons_Size_" << cycle_size;
 
 
 		int var_it = 0;
@@ -1147,69 +1145,73 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 //	SCIPfreeBufferArray(scip, &grade);
 //
 //
-//	// ############################################################################################################################
-//	// Preprocessing ALL PAIRS SHORTEST PATH
-//	// ############################################################################################################################
-////	int* d;
-////	int N = graph->nnodes;
-////	SCIP_CALL( SCIPallocBufferArray(scip, &d, (graph->nnodes + 1) * graph->nnodes * graph->nnodes) );
-////
-////	for ( int i = 0 ; i < N ; ++i )
-////	{
-////		for ( int j = 0 ; j < N ; ++j )
-////		{
-////			d[0*N*N + i*N + j] = -1; //infinity
-////		}
-////	}
-////	for ( int e_it = 0 ; e_it < 2 * graph->nedges ; ++e_it )
-////	{
-////		int k1 = graph->edges[e_it].back->adjac->id;
-////		int k2 = graph->edges[e_it].adjac->id;
-////		d[0*N*N + k1*N + k2] = graph->nodes[k2].bewohner;
-////	}
-////	for ( int k = 1 ; k <= N ; ++k )
-////		for (int i = 0; i < N; ++i)
-////			for (int j = 0; j < N; ++j)
-////				if ( i != j)
-////					d[k*N*N + i*N + j] = minPlus(
-////							d[(k-1)*N*N + i*N + j],
-////							d[(k-1)*N*N + i*N + (k-1)],
-////						d[(k-1)*N*N + (k-1)*N + j]);
-////	// eigene bewohnerzahl draufrechnen
-////	for ( int i = 0 ; i < N ; ++i )
-////	{
-////		for ( int j = 0 ; j < N ; ++j )
-////		{
-////			if (i != j)
-////				d[N*N*N + i*N + j] += graph->nodes[i].bewohner;
-////		}
-////	}
-////
-////	std::cout << "von 0 nach 40:" << d[N*N*N + 0*N + 40] << std::endl;
-////
-////
-////	// search for max
-////	int temp_max = 0;
-////	int wo1;
-////	int wo2;
-////	for ( int i = 0 ; i < N ; ++i )
-////	{
-////		for ( int j = 0 ; j < N ; ++j )
-////		{
-////			if ( d[N*N*N + i*N + j] > 168296)
-////			{
-////				std::cout<<"d: " << d[N*N*N + i*N + j] << " wo1: " << i << " wo2: " << j << std::endl;
-//////				temp_max = d[N*N*N + i*N + j];
-//////				wo1 = i;
-//////				wo2 = j;
-////			}
-////		}
-////	}
-////
-////	std::cout<<"max: " << temp_max << " wo1: " << wo1 << " wo2: " << wo2 << std::endl;
-////
-////
-////	SCIPfreeBufferArray(scip, &d);
+////	// ############################################################################################################################
+////	// Preprocessing ALL PAIRS SHORTEST PATH
+////	// ############################################################################################################################
+//	int* d;
+//	int N = graph->nnodes;
+//	SCIP_CALL( SCIPallocMemoryArray(scip, &d, 2 * graph->nnodes * graph->nnodes) );
+//
+//	for ( int i = 0 ; i < N ; ++i )
+//	{
+//		for ( int j = 0 ; j < N ; ++j )
+//		{
+//			d[0*N*N + i*N + j] = -1; //infinity
+//		}
+//	}
+//	for ( int e_it = 0 ; e_it < 2 * graph->nedges ; ++e_it )
+//	{
+//		int k1 = graph->edges[e_it].back->adjac->id;
+//		int k2 = graph->edges[e_it].adjac->id;
+//		d[0*N*N + k1*N + k2] = graph->nodes[k2].bewohner;
+//	}
+//	for ( int k = 1 ; k <= N ; ++k )
+//	{
+//		for (int i = 0; i < N; ++i)
+//			for (int j = 0; j < N; ++j)
+//				if ( i != j)
+//					d[1*N*N + i*N + j] = minPlus(
+//							d[0*N*N + i*N + j],
+//							d[0*N*N + i*N + (k-1)],
+//						d[0*N*N + (k-1)*N + j]);
+//		for (int i = 0; i < N; ++i)
+//			for (int j = 0; j < N; ++j)
+//				d[0*N*N + i*N + j] = d[1*N*N + i*N + j];
+//	}
+//
+//	// eigene bewohnerzahl draufrechnen
+//	for ( int i = 0 ; i < N ; ++i )
+//	{
+//		for ( int j = 0 ; j < N ; ++j )
+//		{
+//			if (i != j)
+//				d[0*N*N + i*N + j] += graph->nodes[i].bewohner;
+//		}
+//	}
+//
+//	std::cout << "von 0 nach 40:" << d[0*N*N + 0*N + 40] << std::endl;
+//
+//
+//	// search for max
+//	int temp_max = 0;
+//	int wo1;
+//	int wo2;
+//	for ( int i = 0 ; i < N ; ++i )
+//	{
+//		for ( int j = 0 ; j < N ; ++j )
+//		{
+//			if ( d[0*N*N + i*N + j] > 300000)
+//			{
+//				std::cout<<"d: " << d[0*N*N + i*N + j] << " wo1: " << i << " wo2: " << j << std::endl;
+////				temp_max = d[N*N*N + i*N + j];
+////				wo1 = i;
+////				wo2 = j;
+//			}
+//		}
+//	}
+//
+//
+//	SCIPfreeMemoryArray(scip, &d);
 //
 //
 //	// Perl hat WK 0
