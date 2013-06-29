@@ -339,34 +339,143 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 				p[i] = 0;
 
 			for(int i = 0; i < nnodes; i++)
+			{
+				graph->nodes[i].primfound = FALSE;
 				z[i] = -1;
+			}
+
 
 			/* Voronoi Verteilung */
-			for( int i = 0; i < nnodes; i++ )					/* i ist der Knoten */
+			int nparted = 0;
+			/* solange es noch unverteilte Knoten gibt */
+			while( nparted < nnodes )
 			{
-				int mini = -1 ;									/* min index */
-				SCIP_Real minv = SCIPinfinity(scip);			/* min value */
-				for(int j = 0; j < nwk; j++)					/* j das Zentrum */
-				{
-					SCIP_Real tmp = d[j * nnodes + i];
+				int mini  = -1;											/* Knotenindex */
+				int minwk = -1;											/* WK index */
+				SCIP_Real minv = SCIPinfinity(scip);					/* min value */
 
-					//SCIPdebugMessage("tmp = %f, minv= %f\n", tmp, minv);
-					if( SCIPisLT(scip, tmp, minv ) )
+				/* suche nicht zugeteilten Knoten */
+				for( int i = 0; i < nnodes; i++ )						/* i ist der Knoten */
+				{
+					/* Falls der Knoten schon gefunden, continue */
+					if(graph->nodes[i].primfound)
+						continue;
+
+					/* und Wahlkreiszentrum*/
+					for(int j = 0; j < nwk; j++)						/* j das Zentrum */
 					{
-						minv = tmp;
-						mini = j;
+						SCIP_Real tmp = d[j * nnodes + i];
+						assert( SCIPisGE(scip, tmp, 0) );
+						//SCIPdebugMessage("tmp = %f, minv= %f\n", tmp, minv);
+
+						/* mit minimalem Abstand */
+						if( SCIPisLT(scip, tmp, minv ) )
+						{
+							minv 	= tmp;
+							minwk 	= j;
+							mini 	= i;
+						}
 					}
 				}
 
-				SCIPdebugMessage("Minimaler Abstand von Knoten %d zum Centerknoten %d ist = %f\n",
-						(int) graph->nodes[i].stadtid, (int) S[mini]->stadtid, minv);
+				assert(mini >= 0);
+				assert(mini < nnodes);
+				assert(minwk >= 0);
+				assert(minwk < nwk);
 
-				assert( mini >= 0 );
-				assert( mini < nwk);
-				p[mini] += graph->nodes[i].bewohner;
-				z[i] = mini;
+				GRAPHNODE* newnode = &(graph->nodes[mini]);
 
-				P[mini].push_back(&(graph->nodes[i]));
+				assert(!newnode->primfound);
+
+				/* Wahlkreiszentrum wird einfach so geaddet */
+				if(SCIPisEQ(scip, minv, 0))
+				{
+					/* Nur gleiche Knoten haben Abstand null */
+					assert(newnode->id == S[minwk]->id);
+
+					p[minwk] += newnode->bewohner;
+					z[mini] = minwk;
+					P[minwk].push_back(&(graph->nodes[mini]));
+					newnode->primfound = TRUE;
+					nparted ++ ;
+					newnode->wahlkreis = minwk;
+				}
+				/* ansonsten versuchen wir die Stadt möglichst einfach zu migrieren */
+				else
+				{
+					/* 1 Fall: Es gibt einen Nachbarn der schon im selben Wahlkreis ist */
+					SCIP_Bool exnachbar = FALSE;
+					for(int e = 0; e < 2 * graph->nedges; e++)
+					{
+						GRAPHEDGE* edge = &(graph->edges[e]);
+						if( (edge->back->adjac->id == newnode->id && edge->      adjac->wahlkreis == minwk)
+						||  (edge->      adjac->id == newnode->id && edge->back->adjac->wahlkreis == minwk) )
+						{
+							exnachbar = TRUE;
+							break;
+						}
+					}
+
+					if(exnachbar)
+					{
+						p[minwk] += newnode->bewohner;
+						z[mini] = minwk;
+						P[minwk].push_back(&(graph->nodes[mini]));
+						newnode->primfound = TRUE;
+						nparted ++ ;
+						newnode->wahlkreis = minwk;
+
+						continue;
+					}
+
+					/* 2 Fall: Es gibt einen Nachbarn der anders gefärbt ist dann bekommt der Knoten einfach auch die Farbe */
+
+					int wknachbar = -1;
+					for(int e = 0; e < 2 * graph->nedges; e++)
+					{
+						GRAPHEDGE* edge = &(graph->edges[e]);
+						if( (edge->back->adjac->id == newnode->id && edge->      adjac->wahlkreis == minwk)
+						||  (edge->      adjac->id == newnode->id && edge->back->adjac->wahlkreis == minwk) )
+						{
+							exnachbar = TRUE;
+							break;
+						}
+					}
+
+					if(wknachbar != -1)
+					{
+						p[wknachbar] += newnode->bewohner;
+						z[mini] = wknachbar;
+						P[wknachbar].push_back(&(graph->nodes[mini]));
+						newnode->primfound = TRUE;
+						nparted ++ ;
+						newnode->wahlkreis = wknachbar;
+
+						continue;
+					}
+					/* 3 Fall: Alle Knoten in der Umgebung sind ebenfalls noch ungefärbt.
+					 * 		   Wir färben einen "kürzesten" Pfad
+					 *
+					 * 		   Vorgehen:
+					 * 		   Suche den am nächsten am Center liegenden
+					 * 		   ungefärbten Knoten
+					 *
+					 *
+					 * 		   */
+					GRAPHNODE* nextnode = newnode;
+					while(!nextnode->primfound)
+					{
+						if()
+						{
+
+						}
+					}
+				}
+
+
+
+
+
 			}
 
 			for(int wk = 0; wk < nwk; wk++)
@@ -377,6 +486,7 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 				assert( z[i] != -1 );
 				//SCIPdebugMessage("  z[%d] = %d\n", i, z[i]);
 			}
+
 			/* update the distances*/
 			for( int i = 0; i < nnodes; i++ )
 			{
@@ -387,6 +497,7 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 					// SCIPdebugMessage("  d[%d] = %f\n", wk * nnodes + i, d[wk * nnodes + i]);
 				}
 			}
+
 			for(int wk = 0; wk < nwk; wk++)
 			{
 				assert(SCIPisGT(scip, (SCIP_Real) p[wk] / (SCIP_Real) graph->avg, 0));

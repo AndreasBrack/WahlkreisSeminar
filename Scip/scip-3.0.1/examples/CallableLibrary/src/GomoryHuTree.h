@@ -46,6 +46,7 @@ typedef struct GraphNode
 
 	int                   id;            /**< number of the node*/
 	int                   dist;
+	int					  wahlkreis;
 
 	double                x;             /**< 2D-coordinate in some metric*/
 	double                y;             /**< second coordinate */
