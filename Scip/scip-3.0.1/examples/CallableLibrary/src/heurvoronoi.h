@@ -45,7 +45,7 @@ public:
 	/** default constructor */
 	heur_voronoi(
 			SCIP* scip
-	) : ObjHeur(scip, "voronoi", "Voronoi", 'V', 50000, 1, 0, 0,
+	) : ObjHeur(scip, "voronoi", "Voronoi", 'V', 50000, 1000, 0, 0,
 			SCIP_HEURTIMING_BEFOREPRESOL, FALSE)
 	{
 	}

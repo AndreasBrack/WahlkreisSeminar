@@ -12,7 +12,7 @@
 #define FAK_1					   100		/**< Faktor vor a_max */
 #define KOSTEN_VERSCHWK 			 5		/**< Strafkosten falls benachbarte Kreisgleiche Städte verschiedene Wahlkreise erhalten*/
 #define KOSTEN_GLEICHWK 			 0		/**< */
-#define AMAX					   0.8
+#define AMAX					   0.5
 
 //#define SCIP_DEBUG
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
