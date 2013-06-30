@@ -5,6 +5,9 @@
  *      Author: andreas
  */
 
+
+//#define SCIP_DEBUG
+
 #include "heurvoronoi.h"
 
 #include <iostream>
@@ -27,23 +30,27 @@ using namespace tree;
 using namespace scip;
 using namespace std;
 
-#define NUMOUTROUNDS 15
-#define NUMINROUNDS  50
-#define UEBERKREIS	 4
+#define NUMOUTROUNDS 30
+#define NUMINROUNDS  25
+#define UEBERKREIS	 2
 
 
 /*
  * Local methods
  */
 
-SCIP_Real getabs(GRAPHNODE* n1, GRAPHNODE* n2)
+SCIP_Real getabs(SCIP* scip, GRAPHNODE* n1, GRAPHNODE* n2)
 {
-	SCIPdebugMessage("Abstand von %d und %d ist %f\n",
-			(int) n1->stadtid, (int) n2->stadtid, sqrt( pow( n1->x - n2->x, 2) + pow( n1->y - n2->y, 2) ));
+//	SCIPdebugMessage("Abstand von %d und %d ist %f\n",
+//			(int) n1->stadtid, (int) n2->stadtid, sqrt( pow( n1->x - n2->x, 2) + pow( n1->y - n2->y, 2) ));
+//
+//	SCIPdebugMessage("Id: %d, x: %f, y: %f\n", (int) n1->stadtid, n1->x, n1->y);
 
-	SCIPdebugMessage("Id: %d, x: %f, y: %f\n", (int) n1->stadtid, n1->x, n1->y);
+	SCIP_Real retval = sqrt( pow( n1->x - n2->x, 2) + pow( n1->y - n2->y, 2) ) / 100;
 
-	return sqrt( pow( n1->x - n2->x, 2) + pow( n1->y - n2->y, 2) ) / 10000;
+	assert((n1->id == n2->id) == SCIPisEQ(scip, retval, 0));
+
+	return retval;
 }
 
 /** destructor of primal heuristic to free user data (called when SCIP is exiting) */
@@ -118,7 +125,7 @@ GRAPHNODE* getCenter(
 	{
 		SCIP_Real dist = 0;
 		for( vector<GRAPHNODE*>::iterator nit2 = nodes.begin(); nit2 != nodes.end(); ++nit2 )
-			dist += pow( getabs(*nit, *nit2) * (*nit2)->bewohner / 1000, 2);
+			dist += pow( getabs(scip, *nit, *nit2) * sqrt((*nit2)->bewohner)  / 10, 4);
 
 		if( SCIPisLT(scip, dist, mindist) )
 		{
@@ -140,9 +147,12 @@ SCIP_RETCODE AlgvonPrim(
 		SCIP_SOL*			sol,
 		GRAPH*				graph,
 		vector<GRAPHNODE*>	nodes,
-		int					wknr
+		int					wknr,
+		SCIP_RESULT*		result
 )
 {
+	assert(result != NULL);
+	*result = SCIP_DIDNOTRUN;
 	assert(scip != NULL);
 	assert(graph != NULL);
 	assert(wknr >= 0);
@@ -180,7 +190,7 @@ SCIP_RETCODE AlgvonPrim(
 			assert( SCIPisEQ(scip, SCIPgetSolVal(scip, sol, graph->nodes[i].var_v[wknr]), 0) );
 	}
 
-	/* bereiten eine Menge an Kanten vor. Nur wenn beide Knoten im Untterbaum Liegen, betrachten wir die Kante weiter */
+	/* bereiten eine Menge an Kanten vor. Nur wenn beide Knoten im Unterbaum liegen, betrachten wir die Kante weiter */
 	vector<GRAPHEDGE*> edges;
 	for(int i = 0; i < graph->nedges; i++ )
 	{
@@ -188,6 +198,9 @@ SCIP_RETCODE AlgvonPrim(
 		{
 			assert( SCIPisEQ( scip, SCIPgetSolVal(scip, sol, graph->edges[i].adjac->var_v[wknr]), 1) );
 			assert( SCIPisEQ( scip, SCIPgetSolVal(scip, sol, graph->edges[i].back->adjac->var_v[wknr]), 1) );
+
+			SCIPdebugMessage("Kante von %d nach %d\n",
+					(int) graph->edges[i].adjac->stadtid, (int) graph->edges[i].back->adjac->stadtid);
 
 			edges.push_back( &(graph->edges[i]) );
 		}
@@ -207,7 +220,7 @@ SCIP_RETCODE AlgvonPrim(
 	/* Prims Loop */
 	while( nfound < nnodes )
 	{
-		GRAPHEDGE* e 	= NULL;
+		GRAPHEDGE* e = NULL;
 
 		for(vector<GRAPHEDGE*>::iterator eit = edges.begin(); eit != edges.end(); ++eit )
 			/* Suche eine mit einem gefundenen und einem neuen Knoten */
@@ -219,6 +232,15 @@ SCIP_RETCODE AlgvonPrim(
 					break;
 			}
 
+		if( e == NULL )
+		{
+			for(vector<GRAPHNODE*>::iterator nit = nodes.begin(); nit != nodes.end(); ++nit )
+			{
+				if (! ((*nit)->primfound) )
+					SCIPdebugMessage("Isolierte Stadt: %d\n", (int) (*nit)->stadtid );
+			}
+			return SCIP_OKAY;
+		}
 		/* Ansonsten warten wir einfach, bis alle Kanten durchgelaufen sind und fügen sie dann hinzu */
 		assert( e != NULL );
 
@@ -233,24 +255,30 @@ SCIP_RETCODE AlgvonPrim(
 		e->back->adjac->primfound 	= TRUE;
 		e->adjac->primfound			= TRUE;
 
-		if( e->back->adjac->kreisid != e->adjac->kreisid)
-			SCIPdebugMessage("Teuere Kante von %d nach %d gefunden\n",
-					(int) e->back->adjac->stadtid, (int) e->adjac->stadtid);
-		else
-			SCIPdebugMessage("Billige Kante von %d nach %d gefunden\n",
-					(int) e->back->adjac->stadtid, (int) e->adjac->stadtid);
+//		if( e->back->adjac->kreisid != e->adjac->kreisid)
+//			SCIPdebugMessage("Teuere Kante von %d nach %d gefunden\n",
+//					(int) e->back->adjac->stadtid, (int) e->adjac->stadtid);
+//		else
+//			SCIPdebugMessage("Billige Kante von %d nach %d gefunden\n",
+//					(int) e->back->adjac->stadtid, (int) e->adjac->stadtid);
 
 		nfound++;
 	}
 	assert( nfound == nnodes );
 
 	SCIPdebugMessage("Prim beendet\n");
+	*result = SCIP_SUCCESS;
 	return SCIP_OKAY;
 }
 
 /** execution method of primal heuristic */
 SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 {  /*lint --e{715}*/
+
+	*result = SCIP_DIDNOTRUN;
+
+	if(SCIPheurGetNCalls(heur) > 0)
+		return SCIP_OKAY;
 
 	*result = SCIP_DIDNOTFIND;
 
@@ -261,28 +289,37 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 	assert( nwk < nnodes );
 	assert( 0 < nwk );
 
+	for(int i = 0; i < nnodes; i++)
+	{
+		assert( graph->nodes[i].kreisid  != 0 );
+		assert( graph->nodes[i].bewohner != 0 );
+	}
+
 	/* Initial set S */
 	vector<GRAPHNODE*> S;
 
 	int p  [nwk];			/* Population */
 	int z  [nnodes];		/* zugeörogkeit */
 
-	/* TODO neue Mgl fuer Initialmenge */
 	for( int i = 0; i < nwk; i++ )
 	{
+		SCIPdebugMessage("Knoten %d ist Center von wk %d\n", (int) graph->nodes[i].stadtid, i);
 		S.push_back(&(graph->nodes[i]));
 	}
 
-	SCIPdebugMessage("Länge S = %d\n", (int) S.size());
+	//SCIPdebugMessage("Länge S = %d\n", (int) S.size());
 
 	SCIP_Real* d;
 	SCIP_CALL( SCIPallocBufferArray(scip, &d, nwk * nnodes) );
 
+	SCIP_Real* m;
+	SCIP_CALL( SCIPallocBufferArray(scip, &m, nwk) );
 
-	for(int i = 0; i < nwk * nnodes; i++)
-		SCIPdebugMessage("d[%d] = %f\n", i, d[i]);
+	for(int i = 0; i < nwk; i++)
+		m[i] = 1;
 
-	vector<vector<GRAPHNODE*> > P;
+//	for(int i = 0; i < nwk * nnodes; i++)
+//		SCIPdebugMessage("d[%d] = %f\n", i, d[i]);
 
 	for(int outerrounds = 0; outerrounds < NUMOUTROUNDS; outerrounds++)
 	{
@@ -292,8 +329,9 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 			for(int j = 0; j < nwk; j++)
 			{
 				/* Abstände nach Kreis id gewichtet :) */
-				d[j * nnodes + i] = getabs(S[j], &(graph->nodes[i])) * ((S[j]->kreisid == graph->nodes[i].kreisid) ? 1 : UEBERKREIS) ;
-				SCIPdebugMessage("d[%d] = %f\n", j * nnodes + i, d[j * nnodes + i]);
+				d[j * nnodes + i] = m[j] * getabs(scip, S[j], &(graph->nodes[i])) /* * ((S[j]->kreisid == graph->nodes[i].kreisid) ? 1 : UEBERKREIS) */;
+				SCIPdebugMessage("Abstand von Knoten %d zum Centerknoten %d ist d[%d] = %f\n",
+						(int) graph->nodes[i].stadtid, (int) S[j]->stadtid, j * nnodes + i, d[j * nnodes + i]);
 			}
 		}
 
@@ -308,55 +346,264 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 
 			SCIPdebugMessage(" Innerrounds = %d\n", innerrounds);
 			/*Partition for this round*/
-			P.clear();
-			P.resize(nwk);
 
 			for(int i = 0; i < nwk; i++)
 				p[i] = 0;
 
 			for(int i = 0; i < nnodes; i++)
-				z[i] = -1;
-
-			/* Voronoi Verteilung */
-			for( int i = 0; i < nnodes; i++ )					/* i ist der Knoten */
 			{
-				int mini = -1 ;									/* min index */
-				SCIP_Real minv = SCIPinfinity(scip);			/* min value */
-				for(int j = 0; j < nwk; j++)					/* j das Zentrum */
-				{
-					SCIP_Real tmp = d[j * nnodes + i];
+				graph->nodes[i].primfound = FALSE;
+				z[i] = -1;
+			}
 
-					SCIPdebugMessage("tmp = %f, minv= %f\n", tmp, minv);
-					if( SCIPisLT(scip, tmp, minv ) )
+			SCIPdebugMessage("Erstelle Voronoi Mengen\n");
+			/* Voronoi Verteilung */
+			int nparted = 0;
+			/* solange es noch unverteilte Knoten gibt */
+			while( nparted < nnodes )
+			{
+				SCIPdebugMessage("nparted = %d\n", nparted);
+
+				int mini  = -1;											/* Knotenindex */
+				int minwk = -1;											/* WK index */
+				SCIP_Real minv = SCIPinfinity(scip);					/* min value */
+
+				/* suche nicht zugeteilten Knoten */
+				for( int i = 0; i < nnodes; i++ )						/* i ist der Knoten */
+				{
+					/* Falls der Knoten schon gefunden, continue */
+					if(graph->nodes[i].primfound)
+						continue;
+
+					/* und Wahlkreiszentrum*/
+					for(int j = 0; j < nwk; j++)						/* j das Zentrum */
 					{
-						minv = tmp;
-						mini = j;
+						SCIP_Real tmp = d[j * nnodes + i];
+						assert( SCIPisGE(scip, tmp, 0) );
+						//SCIPdebugMessage("tmp = %f, minv= %f\n", tmp, minv);
+
+						/* mit minimalem Abstand */
+						if( SCIPisLT(scip, tmp, minv ) )
+						{
+							minv 	= tmp;
+							minwk 	= j;
+							mini 	= i;
+						}
 					}
 				}
 
-				assert( mini != -1 );
-				p[mini] += graph->nodes[i].bewohner;
-				z[i] = mini;
+				assert(mini >= 0);
+				assert(mini < nnodes);
+				assert(minwk >= 0);
+				assert(minwk < nwk);
 
-				P[mini].push_back(&(graph->nodes[i]));
+				GRAPHNODE* newnode = &(graph->nodes[mini]);
 
+				assert(!newnode->primfound);
+				SCIPdebugMessage("Minimaler AbstandsKnoten: %d, Abstand %f\n", (int) newnode->stadtid, minv);
+
+				/* Wahlkreiszentrum wird einfach so geaddet */
+				if(SCIPisEQ(scip, minv, 0))
+				{
+					SCIPdebugMessage("Zentrum\n");
+					/* Nur gleiche Knoten haben Abstand null */
+					assert(newnode->id == S[minwk]->id);
+
+					p[minwk] += newnode->bewohner;
+					z[mini] = minwk;
+					newnode->primfound = TRUE;
+					nparted ++ ;
+					newnode->wahlkreis = minwk;
+				}
+				/* ansonsten versuchen wir die Stadt möglichst einfach zu migrieren */
+				else
+				{
+					/* 1 Fall: Es gibt einen Nachbarn der schon im selben Wahlkreis ist */
+					SCIP_Bool exnachbar = FALSE;
+					for(int e = 0; e < 2 * graph->nedges; e++)
+					{
+						GRAPHEDGE* edge = &(graph->edges[e]);
+						if( (edge->back->adjac->id == newnode->id && edge->      adjac->wahlkreis == minwk)
+						||  (edge->      adjac->id == newnode->id && edge->back->adjac->wahlkreis == minwk) )
+						{
+							exnachbar = TRUE;
+							break;
+						}
+					}
+
+					if(exnachbar)
+					{
+						SCIPdebugMessage("Nachbarfall\n");
+						p[minwk] += newnode->bewohner;
+						z[mini] = minwk;
+						newnode->primfound = TRUE;
+						nparted ++ ;
+						newnode->wahlkreis = minwk;
+
+						continue;
+					}
+
+					/* 2 Fall: Es gibt einen Nachbarn der anders gefärbt ist dann bekommt der Knoten einfach auch die Farbe */
+
+					int wknachbar = -1;
+					for(int e = 0; e < 2 * graph->nedges; e++)
+					{
+						GRAPHEDGE* edge = &(graph->edges[e]);
+						if( (edge->back->adjac->id == newnode->id && edge->      adjac->primfound) )
+						{
+							wknachbar = edge->      adjac->wahlkreis;
+							break;
+						}
+
+						if( (edge->      adjac->id == newnode->id && edge->back->adjac->primfound) )
+						{
+							wknachbar = edge->back->adjac->wahlkreis;
+							break;
+						}
+					}
+
+					if(wknachbar != -1)
+					{
+						SCIPdebugMessage("färbe den Nachbarn\n");
+						p[wknachbar] += newnode->bewohner;
+						z[mini] = wknachbar;
+						newnode->primfound = TRUE;
+						nparted ++ ;
+						newnode->wahlkreis = wknachbar;
+
+						continue;
+					}
+					/* 3 Fall: Alle Knoten in der Umgebung sind ebenfalls noch ungefärbt.
+					 * 		   Wir färben einen "kürzesten" Pfad
+					 *
+					 * 		   Vorgehen:
+					 * 		   Suche den am nächsten am Center liegenden
+					 * 		   ungefärbten Knoten
+					 * 		   */
+					while( TRUE )
+					{
+						SCIPdebugMessage("Pathfärbung\n");
+						/* finde den Index des Knotens */
+						for(mini = 0; mini < nnodes; mini++)
+							if(graph->nodes[mini].id == newnode->id)
+								break;
+
+						/* Färben den Knoten */
+						p[minwk] += newnode->bewohner;
+						z[mini] = minwk;
+						newnode->primfound = TRUE;
+						nparted ++ ;
+						newnode->wahlkreis = minwk;
+
+						/* Falls es einen benachbarten Knoten gibt
+						 * der schon in dem betreffenden WK ist,
+						 * dann sind wir fertig
+						 * */
+						SCIP_Bool found = FALSE;
+						for(int e = 0; e < 2 * graph->nedges; e++)
+						{
+							GRAPHEDGE* edge = &(graph->edges[e]);
+							if( (edge->back->adjac->id == newnode->id && edge->      adjac->wahlkreis == minwk)
+							||  (edge->      adjac->id == newnode->id && edge->back->adjac->wahlkreis == minwk) )
+							{
+								found = TRUE;
+								break;
+							}
+						}
+						if(found)
+						{
+							SCIPdebugMessage("Ende gefunden\n");
+							break;
+						}
+
+
+						/* Ansonsten suchen wir den Nachbarknoten mit
+						 * dem geringsten Abstand zum Centrum.
+						 */
+
+						GRAPHNODE* nextnode = NULL;
+						SCIP_Real dist = SCIPinfinity(scip);
+
+						/* Finde den nächsten Knoten */
+						for(int e = 0; e < 2 * graph->nedges; e++)
+						{
+							GRAPHEDGE* edge = &(graph->edges[e]);
+							if((edge->back->adjac->id == newnode->id && SCIPisLT(scip, getabs(scip, edge->      adjac, S[minwk]), dist)))
+							{
+								nextnode 	= edge->adjac;
+								dist 		= getabs(scip, edge->      adjac, S[minwk]);
+							}
+							if((edge->      adjac->id == newnode->id && SCIPisLT(scip, getabs(scip, edge->back->adjac, S[minwk]), dist)))
+							{
+								nextnode 	= edge->back->adjac;
+								dist		= getabs(scip, edge->back->adjac, S[minwk]);
+							}
+						}
+						assert(nextnode != NULL);
+						newnode = nextnode;
+						SCIPdebugMessage("Nächster Knoten hat die id %d\n", (int) newnode->stadtid);
+
+						/* 1 Fall: Knoten noch nicht gefärbt.
+						 * 		   Wir färben ihn
+						 */
+
+						if(!newnode->primfound)
+							continue;
+
+						/*
+						 * 2 Fall: Knoten ist schon gefärbt
+						 * 		   Wir färben ihn um.
+						 * */
+						else
+						{
+							/* sonst hätten wir schon früher aufhören sollen */
+							assert(newnode->wahlkreis != minwk);
+
+							for(mini = 0; mini < nnodes; mini++)
+								if(graph->nodes[mini].id == nextnode->id)
+									break;
+
+							/* Wir löschen nun die Zuteilung */
+							p[newnode->wahlkreis] -= newnode->bewohner;
+							z[mini] = minwk;
+							newnode->wahlkreis = minwk;
+							nparted--;
+
+							continue;
+						}
+					}
+				}
 			}
+
 
 			for(int i = 0; i < nnodes; i++)
 			{
-				assert( z[i] != -1 );
+				assert( z[i] >= 0 && z[i] < nwk);
+				assert( graph->nodes[i].kreisid  != 0 );
+				assert( graph->nodes[i].bewohner != 0 );
+
 				SCIPdebugMessage("  z[%d] = %d\n", i, z[i]);
 			}
-			/* update the distances*/
+
+			for(int wk = 0; wk < nwk; wk++)
+			{
+				m[wk] = sqrt(sqrt( m[wk] * (SCIP_Real) p[wk] / (SCIP_Real) graph->avg ));
+			}
+
+			/* update the distances */
 			for( int i = 0; i < nnodes; i++ )
 			{
 				for(int wk = 0; wk < nwk; wk++)
 				{
-					d[wk * nnodes + i] = d[wk * nnodes + i] * ( (SCIP_Real) p[z[i]] / (SCIP_Real) graph->avg);
+					d[wk * nnodes + i] = /* d[wk * nnodes + i])*/
+							m[wk] * getabs(scip, S[wk], &(graph->nodes[i])) * ( (SCIP_Real) p[z[i]] / (SCIP_Real) graph->avg);
 					/* p[z[i]] = Popultation von der Partitonsmenge von i. */
-					SCIPdebugMessage("  d[%d] = %f\n", wk * nnodes + i, d[wk * nnodes + i]);
+					// SCIPdebugMessage("  d[%d] = %f\n", wk * nnodes + i, d[wk * nnodes + i]);
 				}
 			}
+
+
+
 			for(int wk = 0; wk < nwk; wk++)
 			{
 				assert(SCIPisGT(scip, (SCIP_Real) p[wk] / (SCIP_Real) graph->avg, 0));
@@ -364,6 +611,21 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 				SCIPstatisticMessage( "Quotient = %f\n", (SCIP_Real) p[wk] / (SCIP_Real) graph->avg );
 			}
 		}
+
+		/* z nach P */
+		vector<vector<GRAPHNODE*> > P;
+		P.resize(nwk);
+
+		for(int i = 0; i < graph->nnodes; i++)
+		{
+			assert( z[i] >= 0  );
+			assert( z[i] < nwk );
+
+			P[z[i]].push_back(&(graph->nodes[i]));
+		}
+
+		for(int wk = 0; wk < nwk; wk++)
+			assert(P[wk].size() > 0);
 
 		S.clear();
 		assert(S.size() == 0);
@@ -373,6 +635,27 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 			S.push_back( getCenter(scip, graph, P[wk]) );
 
 
+		double p2 [nnodes];
+		for(int i = 0; i < nnodes; i++)
+			p2[i] = p[i] + i * 0.001;
+
+		int u  [nwk];				/* Umordnungsvariable */
+		for(int wk = 0; wk < nwk; wk++)
+		{
+			/* zählen die echt größeren Wahlkreise als wk */
+			int a = 0;
+			for(int i = 0; i < nwk; i++)
+				if( p2[i] > p2[wk] )
+					a++;
+				else if(p2[i] == p2[wk] && i != wk)
+				{
+					SCIPmessagePrintError("Dieser Fall kann nicht mehr sein! :-D\n");
+				}
+			u[wk] = a;
+			SCIPdebugMessage("p[%d] = %d\n", wk, p[wk]);
+		}
+		for(int wk = 0; wk < nwk; wk++)
+			SCIPdebugMessage("u[%d] = %d\n", wk ,u[wk]);
 
 		/* Lösung vorbereiten */
 		SCIP_SOL* newsol;
@@ -408,44 +691,61 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 					amax = -tmp;
 				}
 			}
-			SCIPsetSolVal(scip, newsol, graph->a_neg_var_v[wk], aneg);
-			SCIPsetSolVal(scip, newsol, graph->a_pos_var_v[wk], apos);
+			SCIPsetSolVal(scip, newsol, graph->a_neg_var_v[u[wk]], aneg);
+			SCIPsetSolVal(scip, newsol, graph->a_pos_var_v[u[wk]], apos);
 		}
 		SCIPsetSolVal(scip, newsol, graph->a_max_var, amax);
 
+#ifdef SCIP_DEBUG
+		int check [nwk];
+		for(int wk = 0; wk < nwk; wk++)
+			check[wk] = 0;
+#endif
 		/* y variablen */
 		for(int i = 0; i < nnodes; i++)
 		{
-			SCIPsetSolVal(scip, newsol, graph->nodes[i].var_v[z[i]], 1);
+			//SCIPdebugMessage("%s, an Stelle %d, auf 1 gesetzt\n",SCIPvarGetName(graph->nodes[i].var_v[u[z[i]]]), u[z[i]]);
+			SCIP_CALL( SCIPsetSolVal(scip, newsol, graph->nodes[i].var_v[u[z[i]]], 1) );
+#ifdef SCIP_DEBUG
+			check[u[z[i]]] += graph->nodes[i].bewohner;
+#endif
 		}
+#ifdef SCIP_DEBUG
+		for(int wk = 0; wk < nwk; wk++)
+			SCIPdebugMessage("check[%d] = %d\n", wk, check[wk]);
+#endif
 
 		/* stimmt z mit P überein? */
 		for(int wk = 0; wk < nwk; wk++)
 			for(vector<GRAPHNODE*>::iterator nit = P[wk].begin(); nit != P[wk].end(); ++nit)
-				assert( SCIPisEQ(scip, SCIPgetSolVal(scip, newsol, (*nit)->var_v[wk]), 1) );
-
+			{
+				//SCIPdebugMessage("%s, an Stelle %d, soll auf 1 gesetzt sein\n",SCIPvarGetName((*nit)->var_v[u[wk]]), u[wk]);
+				assert( SCIPisEQ(scip, SCIPgetSolVal(scip, newsol, (*nit)->var_v[u[wk]]), 1) );
+			}
 
 		/* x vars */
-		for(int wk = 0; wk < nwk; wk++)
-			SCIP_CALL( AlgvonPrim(scip, newsol, graph, P[wk], wk) );
-#ifdef SCIP_DEBUG
-		SCIPprintSol(scip, newsol, NULL, FALSE);
-#endif
-		SCIPtrySol(scip, newsol, FALSE, TRUE, TRUE, TRUE, &stored);
+		SCIP_RESULT subres = SCIP_SUCCESS;
+		for(int wk = 0; wk < nwk && (subres == SCIP_SUCCESS); wk++)
+			SCIP_CALL( AlgvonPrim(scip, newsol, graph, P[wk], u[wk], &subres) );
 
-		if(stored)
+		if(subres != SCIP_SUCCESS)
 		{
-			SCIPdebugMessage("Solution found\n");
-			*result = SCIP_FOUNDSOL;
+			//SCIPerrorMessage("Isolated Vertex in Voronoi Set.\n");
+			SCIPdebugMessage("Isolated Vertex in Voronoi Set.\n");
 		}
+		else
+		{
+			//SCIPprintSol(scip, newsol, NULL, FALSE);
+			SCIPtrySol(scip, newsol, FALSE, TRUE, TRUE, TRUE, &stored);
 
+			if(stored)
+			{
+				SCIPdebugMessage("Solution found\n");
+				*result = SCIP_FOUNDSOL;
+			}
+		}
 		SCIP_CALL( SCIPfreeSol(scip, &newsol) );
-
-
 	}
-
-	for(int wk = 0; wk < nwk; wk++)
-		SCIPdebugMessage("  p[%d] = %d\n", wk,  p[wk] );
 
 	SCIPfreeBufferArray(scip, &d);
 
