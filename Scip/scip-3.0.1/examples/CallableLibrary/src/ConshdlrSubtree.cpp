@@ -5,7 +5,7 @@
  *      Author: andreas
  */
 
-#define KREIS_MAX 			 1000
+#define KREIS_MAX 			 4
 
 #define SCIP_DEBUG
 /*---+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----0----+----1----+----2*/
@@ -880,7 +880,7 @@ SCIP_RETCODE sepaSubtree(
 						- SCIPinfinity(scip), rhs,
 						TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE ) );
 				SCIP_CALL( SCIPaddCons(scip, cons) );
-				//SCIP_CALL( SCIPaddCut(scip, sol, cons, FALSE) );
+			//	SCIP_CALL( SCIPaddCut(scip, sol, dynamic_cast<SCIP_Row*> cons, FALSE) );
 
 
 //				FILE * pFile;
@@ -952,28 +952,28 @@ SCIP_RETCODE sepaSubtree(
 //				}
 
 
-//				SCIP_ROW* row;
-//				SCIP_CALL( SCIPcreateEmptyRowCons(scip, &row, conshdlr, "sepa_subtree", - SCIPinfinity(scip), rhs, FALSE, FALSE, TRUE) );
-//				SCIP_CALL( SCIPcacheRowExtensions(scip, row) );
-//
-//				for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
-//				{
-//					if ( SCIPisEQ(sub_scip, SCIPgetSolVal(sub_scip, sub_sol, z_vars[e_it]), 1)  )
-//					{
-//						//for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it )
-//						SCIP_CALL( SCIPaddVarToRow(scip, row, graph->edges[e_it].var_v[wk_it], 1) );
-//					}
-//				}
-//				SCIP_CALL( SCIPflushRowExtensions(scip, row) );
-//
-//				if ( SCIPisCutEfficacious(scip, sol, row) )
-//				{
-//					SCIP_CALL( SCIPaddCut(scip, sol, row, FALSE) );
-//					//SCIPprintRow(scip, row, NULL);
-//					//std::cout << "cut hinzugefügt" << std::endl;
-//					*result = SCIP_SEPARATED;
-//				}
-//				SCIP_CALL( SCIPreleaseRow(scip, &row) );
+				SCIP_ROW* row;
+				SCIP_CALL( SCIPcreateEmptyRowCons(scip, &row, conshdlr, "sepa_subtree", - SCIPinfinity(scip), rhs, FALSE, FALSE, TRUE) );
+				SCIP_CALL( SCIPcacheRowExtensions(scip, row) );
+
+				for ( int e_it = 0 ; e_it < graph->nedges ; ++e_it )
+				{
+					if ( SCIPisEQ(sub_scip, SCIPgetSolVal(sub_scip, sub_sol, z_vars[e_it]), 1)  )
+					{
+						for ( int wk_it = 0 ; wk_it < graph->nwahlkreise ; ++wk_it )
+							SCIP_CALL( SCIPaddVarToRow(scip, row, graph->edges[e_it].var_v[wk_it], 1) );
+					}
+				}
+				SCIP_CALL( SCIPflushRowExtensions(scip, row) );
+
+				if ( SCIPisCutEfficacious(scip, sol, row) )
+				{
+					SCIP_CALL( SCIPaddCut(scip, sol, row, FALSE) );
+					//SCIPprintRow(scip, row, NULL);
+					//std::cout << "cut hinzugefügt" << std::endl;
+					//*result = SCIP_SEPARATED;
+				}
+				SCIP_CALL( SCIPreleaseRow(scip, &row) );
 //
 //				//SCIP_ROW* row;
 //				SCIP_CALL( SCIPcreateEmptyRowCons(scip, &row, conshdlr, "sepa_subtree", - SCIPinfinity(scip), rhs, FALSE, FALSE, TRUE) );
@@ -1223,7 +1223,7 @@ SCIP_DECL_CONSENFOLP(ConshdlrSubtree::scip_enfolp)
 		// if a subtree was found, we generate a cut constraint saying that there must be at least two outgoing edges
 		if( found )
 			SCIP_CALL(sepaSubtree(scip, conshdlr, G, NULL, result));
-			//*result = SCIP_INFEASIBLE;
+			*result = SCIP_INFEASIBLE;
 	}
 
 	return SCIP_OKAY;

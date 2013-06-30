@@ -1041,7 +1041,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 //			SCIPfreeBufferArray(scip, &vals);
 //
 //		}
-//
+
 //		if ( grade[n_it] == 2)
 //		{
 //			// ###############################################################
@@ -1107,7 +1107,7 @@ SCIP_DECL_READERREAD(ReaderWP::scip_read)
 //
 //
 //		}
-//
+
 //	}
 //
 //	// ###############################################################
