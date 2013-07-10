@@ -30,9 +30,11 @@ using namespace tree;
 using namespace scip;
 using namespace std;
 
-#define NUMOUTROUNDS 30
-#define NUMINROUNDS  25
+#define NUMOUTROUNDS 40
+#define NUMINROUNDS  40
 #define UEBERKREIS	 2
+
+//#define PRINTER
 
 
 /*
@@ -125,7 +127,7 @@ GRAPHNODE* getCenter(
 	{
 		SCIP_Real dist = 0;
 		for( vector<GRAPHNODE*>::iterator nit2 = nodes.begin(); nit2 != nodes.end(); ++nit2 )
-			dist += pow( getabs(scip, *nit, *nit2) * sqrt((*nit2)->bewohner)  / 10, 4);
+			dist += pow( getabs(scip, *nit, *nit2) * sqrt(sqrt( (*nit2)->bewohner) )  / 10, 4);
 
 		if( SCIPisLT(scip, dist, mindist) )
 		{
@@ -271,6 +273,168 @@ SCIP_RETCODE AlgvonPrim(
 	return SCIP_OKAY;
 }
 
+SCIP_RETCODE testsol(
+		SCIP* 				scip,
+		SCIP_HEUR* 			heur,
+		int 				nwk,
+		GRAPH* 				graph,
+		int 				p[],
+		int 				z[],
+		bool 				renew,
+		vector<GRAPHNODE*>* S,
+		SCIP_RESULT* 		result
+)
+{
+	assert(result != 0);
+	assert(heur   != 0);
+	assert(scip   != 0);
+	assert(graph  != 0);
+
+	int nnodes = graph->nnodes;
+	assert(nnodes > 0);
+
+	/* z nach P */
+	vector<vector<GRAPHNODE*> > P;
+	P.resize(nwk);
+
+	for(int i = 0; i < graph->nnodes; i++)
+	{
+		assert( z[i] >= 0  );
+		assert( z[i] < nwk );
+
+		P[z[i]].push_back(&(graph->nodes[i]));
+	}
+
+	for(int wk = 0; wk < nwk; wk++)
+		assert(P[wk].size() > 0);
+
+	if(renew)
+	{
+		(*S).clear();
+		assert((*S).size() == 0);
+		assert((int) P.size() == nwk);
+
+		for(int wk = 0; wk < nwk; wk++)
+			(*S).push_back( getCenter(scip, graph, P[wk]) );
+	}
+
+	double p2 [nnodes];
+	for(int i = 0; i < nnodes; i++)
+		p2[i] = p[i] + i * 0.001;
+
+	int u  [nwk];				/* Umordnungsvariable */
+	for(int wk = 0; wk < nwk; wk++)
+	{
+		/* zählen die echt größeren Wahlkreise als wk */
+		int a = 0;
+		for(int i = 0; i < nwk; i++)
+			if( p2[i] > p2[wk] )
+				a++;
+			else if(p2[i] == p2[wk] && i != wk)
+			{
+				SCIPmessagePrintError("Dieser Fall kann nicht mehr sein! :-D\n");
+			}
+		u[wk] = a;
+		SCIPdebugMessage("p[%d] = %d\n", wk, p[wk]);
+	}
+	for(int wk = 0; wk < nwk; wk++)
+		SCIPdebugMessage("u[%d] = %d\n", wk ,u[wk]);
+
+	/* Lösung vorbereiten */
+	SCIP_SOL* newsol;
+	SCIP_Bool stored;
+
+	SCIP_CALL( SCIPcreateSol(scip, &newsol, heur) );
+
+	/* berechne amax und aneg und apos für jeden Wahlkreis */
+	SCIP_Real amax = 0;
+	SCIP_Real apos = 0;
+	SCIP_Real aneg = 0;
+
+	for( int wk = 0; wk < nwk; wk++ )
+	{
+		SCIP_Real tmp = ((SCIP_Real) p[wk]) / ((SCIP_Real) graph->avg) - 1;
+		if( SCIPisGT(scip, tmp, 0.0) )
+		{
+			apos = tmp;
+			aneg = 0;
+			if( SCIPisGT(scip, tmp, amax) )
+			{
+				amax = tmp;
+			}
+		}
+
+		if( SCIPisLT(scip, tmp, 0.0) )
+		{
+			aneg = -tmp;
+			apos = 0;
+
+			if( SCIPisGT(scip, -tmp, amax) )
+			{
+				amax = -tmp;
+			}
+		}
+		SCIPsetSolVal(scip, newsol, graph->a_neg_var_v[u[wk]], aneg);
+		SCIPsetSolVal(scip, newsol, graph->a_pos_var_v[u[wk]], apos);
+	}
+	SCIPsetSolVal(scip, newsol, graph->a_max_var, amax);
+
+	#ifdef SCIP_DEBUG
+	int check [nwk];
+	for(int wk = 0; wk < nwk; wk++)
+		check[wk] = 0;
+	#endif
+	/* y variablen */
+	for(int i = 0; i < nnodes; i++)
+	{
+		//SCIPdebugMessage("%s, an Stelle %d, auf 1 gesetzt\n",SCIPvarGetName(graph->nodes[i].var_v[u[z[i]]]), u[z[i]]);
+		SCIP_CALL( SCIPsetSolVal(scip, newsol, graph->nodes[i].var_v[u[z[i]]], 1) );
+	#ifdef SCIP_DEBUG
+		check[u[z[i]]] += graph->nodes[i].bewohner;
+	#endif
+	}
+	#ifdef SCIP_DEBUG
+	for(int wk = 0; wk < nwk; wk++)
+		SCIPdebugMessage("check[%d] = %d\n", wk, check[wk]);
+	#endif
+
+	/* stimmt z mit P überein? */
+	for(int wk = 0; wk < nwk; wk++)
+		for(vector<GRAPHNODE*>::iterator nit = P[wk].begin(); nit != P[wk].end(); ++nit)
+		{
+			//SCIPdebugMessage("%s, an Stelle %d, soll auf 1 gesetzt sein\n",SCIPvarGetName((*nit)->var_v[u[wk]]), u[wk]);
+			assert( SCIPisEQ(scip, SCIPgetSolVal(scip, newsol, (*nit)->var_v[u[wk]]), 1) );
+		}
+
+	/* x vars */
+	SCIP_RESULT subres = SCIP_SUCCESS;
+	for(int wk = 0; wk < nwk && (subres == SCIP_SUCCESS); wk++)
+		SCIP_CALL( AlgvonPrim(scip, newsol, graph, P[wk], u[wk], &subres) );
+
+	if(subres != SCIP_SUCCESS)
+	{
+		//SCIPerrorMessage("Isolated Vertex in Voronoi Set.\n");
+		SCIPdebugMessage("Isolated Vertex in Voronoi Set.\n");
+	}
+	else
+	{
+#ifdef PRINTER
+		FILE* file = fopen("solutions.txt", "a");
+		fprintf(file, "\n\n\n Neue Sol: \n");
+		SCIPprintSol(scip, newsol, file, FALSE);
+#endif
+		SCIPtrySol(scip, newsol, FALSE, TRUE, TRUE, TRUE, &stored);
+
+		if(stored)
+		{
+			SCIPdebugMessage("Solution found\n");
+			*result = SCIP_FOUNDSOL;
+		}
+	}
+	SCIP_CALL( SCIPfreeSol(scip, &newsol) );
+
+	return SCIP_OKAY;
+}
 /** execution method of primal heuristic */
 SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 {  /*lint --e{715}*/
@@ -595,14 +759,12 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 			{
 				for(int wk = 0; wk < nwk; wk++)
 				{
-					d[wk * nnodes + i] = /* d[wk * nnodes + i])*/
-							m[wk] * getabs(scip, S[wk], &(graph->nodes[i])) * ( (SCIP_Real) p[z[i]] / (SCIP_Real) graph->avg);
+					d[wk * nnodes + i] = d[wk * nnodes + i] * ( (SCIP_Real) p[wk] / (SCIP_Real) graph->avg);
+//							m[wk] * getabs(scip, S[wk], &(graph->nodes[i])) * ( (SCIP_Real) p[z[i]] / (SCIP_Real) graph->avg);
 					/* p[z[i]] = Popultation von der Partitonsmenge von i. */
 					// SCIPdebugMessage("  d[%d] = %f\n", wk * nnodes + i, d[wk * nnodes + i]);
 				}
 			}
-
-
 
 			for(int wk = 0; wk < nwk; wk++)
 			{
@@ -610,141 +772,8 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 				assert(SCIPisLT(scip, (SCIP_Real) p[wk] / (SCIP_Real) graph->avg, nwk));
 				SCIPstatisticMessage( "Quotient = %f\n", (SCIP_Real) p[wk] / (SCIP_Real) graph->avg );
 			}
+			SCIP_CALL( testsol(scip, heur, nwk, graph, p, z, (innerrounds == NUMINROUNDS - 1)? TRUE : FALSE, &S, result) );
 		}
-
-		/* z nach P */
-		vector<vector<GRAPHNODE*> > P;
-		P.resize(nwk);
-
-		for(int i = 0; i < graph->nnodes; i++)
-		{
-			assert( z[i] >= 0  );
-			assert( z[i] < nwk );
-
-			P[z[i]].push_back(&(graph->nodes[i]));
-		}
-
-		for(int wk = 0; wk < nwk; wk++)
-			assert(P[wk].size() > 0);
-
-		S.clear();
-		assert(S.size() == 0);
-		assert((int) P.size() == nwk);
-
-		for(int wk = 0; wk < nwk; wk++)
-			S.push_back( getCenter(scip, graph, P[wk]) );
-
-
-		double p2 [nnodes];
-		for(int i = 0; i < nnodes; i++)
-			p2[i] = p[i] + i * 0.001;
-
-		int u  [nwk];				/* Umordnungsvariable */
-		for(int wk = 0; wk < nwk; wk++)
-		{
-			/* zählen die echt größeren Wahlkreise als wk */
-			int a = 0;
-			for(int i = 0; i < nwk; i++)
-				if( p2[i] > p2[wk] )
-					a++;
-				else if(p2[i] == p2[wk] && i != wk)
-				{
-					SCIPmessagePrintError("Dieser Fall kann nicht mehr sein! :-D\n");
-				}
-			u[wk] = a;
-			SCIPdebugMessage("p[%d] = %d\n", wk, p[wk]);
-		}
-		for(int wk = 0; wk < nwk; wk++)
-			SCIPdebugMessage("u[%d] = %d\n", wk ,u[wk]);
-
-		/* Lösung vorbereiten */
-		SCIP_SOL* newsol;
-		SCIP_Bool stored;
-
-		SCIP_CALL( SCIPcreateSol(scip, &newsol, heur) );
-
-		/* berechne amax und aneg und apos für jeden Wahlkreis */
-		SCIP_Real amax = 0;
-		SCIP_Real apos = 0;
-		SCIP_Real aneg = 0;
-
-		for( int wk = 0; wk < nwk; wk++ )
-		{
-			SCIP_Real tmp = ((SCIP_Real) p[wk]) / ((SCIP_Real) graph->avg) - 1;
-			if( SCIPisGT(scip, tmp, 0.0) )
-			{
-				apos = tmp;
-				aneg = 0;
-				if( SCIPisGT(scip, tmp, amax) )
-				{
-					amax = tmp;
-				}
-			}
-
-			if( SCIPisLT(scip, tmp, 0.0) )
-			{
-				aneg = -tmp;
-				apos = 0;
-
-				if( SCIPisGT(scip, -tmp, amax) )
-				{
-					amax = -tmp;
-				}
-			}
-			SCIPsetSolVal(scip, newsol, graph->a_neg_var_v[u[wk]], aneg);
-			SCIPsetSolVal(scip, newsol, graph->a_pos_var_v[u[wk]], apos);
-		}
-		SCIPsetSolVal(scip, newsol, graph->a_max_var, amax);
-
-#ifdef SCIP_DEBUG
-		int check [nwk];
-		for(int wk = 0; wk < nwk; wk++)
-			check[wk] = 0;
-#endif
-		/* y variablen */
-		for(int i = 0; i < nnodes; i++)
-		{
-			//SCIPdebugMessage("%s, an Stelle %d, auf 1 gesetzt\n",SCIPvarGetName(graph->nodes[i].var_v[u[z[i]]]), u[z[i]]);
-			SCIP_CALL( SCIPsetSolVal(scip, newsol, graph->nodes[i].var_v[u[z[i]]], 1) );
-#ifdef SCIP_DEBUG
-			check[u[z[i]]] += graph->nodes[i].bewohner;
-#endif
-		}
-#ifdef SCIP_DEBUG
-		for(int wk = 0; wk < nwk; wk++)
-			SCIPdebugMessage("check[%d] = %d\n", wk, check[wk]);
-#endif
-
-		/* stimmt z mit P überein? */
-		for(int wk = 0; wk < nwk; wk++)
-			for(vector<GRAPHNODE*>::iterator nit = P[wk].begin(); nit != P[wk].end(); ++nit)
-			{
-				//SCIPdebugMessage("%s, an Stelle %d, soll auf 1 gesetzt sein\n",SCIPvarGetName((*nit)->var_v[u[wk]]), u[wk]);
-				assert( SCIPisEQ(scip, SCIPgetSolVal(scip, newsol, (*nit)->var_v[u[wk]]), 1) );
-			}
-
-		/* x vars */
-		SCIP_RESULT subres = SCIP_SUCCESS;
-		for(int wk = 0; wk < nwk && (subres == SCIP_SUCCESS); wk++)
-			SCIP_CALL( AlgvonPrim(scip, newsol, graph, P[wk], u[wk], &subres) );
-
-		if(subres != SCIP_SUCCESS)
-		{
-			//SCIPerrorMessage("Isolated Vertex in Voronoi Set.\n");
-			SCIPdebugMessage("Isolated Vertex in Voronoi Set.\n");
-		}
-		else
-		{
-			//SCIPprintSol(scip, newsol, NULL, FALSE);
-			SCIPtrySol(scip, newsol, FALSE, TRUE, TRUE, TRUE, &stored);
-
-			if(stored)
-			{
-				SCIPdebugMessage("Solution found\n");
-				*result = SCIP_FOUNDSOL;
-			}
-		}
-		SCIP_CALL( SCIPfreeSol(scip, &newsol) );
 	}
 
 	SCIPfreeBufferArray(scip, &d);
