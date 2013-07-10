@@ -31,7 +31,7 @@ using namespace scip;
 using namespace std;
 
 #define NUMOUTROUNDS 40
-#define NUMINROUNDS  40
+#define NUMINROUNDS  20
 #define UEBERKREIS	 2
 
 //#define PRINTER
@@ -500,7 +500,7 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 		}
 
 		SCIPdebugMessage("Outerrounds = %d\n", outerrounds);
-		for(int innerrounds = 0; innerrounds < NUMINROUNDS; innerrounds++)
+		for(int innerrounds = 0; innerrounds < NUMINROUNDS && innerrounds < outerrounds + 5; innerrounds++)
 		{
 			for(int i = 0; i < nnodes * nwk; i++)
 			{
@@ -571,7 +571,8 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 				{
 					SCIPdebugMessage("Zentrum\n");
 					/* Nur gleiche Knoten haben Abstand null */
-					assert(newnode->id == S[minwk]->id);
+					if(innerrounds < 10)
+						assert(newnode->id == S[minwk]->id);
 
 					p[minwk] += newnode->bewohner;
 					z[mini] = minwk;
@@ -777,6 +778,7 @@ SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
 	}
 
 	SCIPfreeBufferArray(scip, &d);
+	SCIPfreeBufferArray(scip, &m);
 
 	return SCIP_OKAY;
 }
