@@ -31,6 +31,7 @@ MAINOBJ		=	circle.o \
 				ProbDataWP.o \
 				ConshdlrSubtree.o \
 				heurvoronoi.o \
+				improve.o \
 				EventhdlrNewSol.o
 MAINSRC		=	$(addprefix $(SRCDIR)/,$(MAINOBJ:.o=.cpp))
 MAINDEP		=	$(SRCDIR)/depend.cppmain.$(OPT)

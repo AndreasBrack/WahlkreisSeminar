@@ -29,13 +29,13 @@ using namespace std;
 
 
 /** destructor of primal heuristic to free user data (called when SCIP is exiting) */
-SCIP_DECL_HEURFREE(heur_voronoi::scip_free)
+SCIP_DECL_HEURFREE(heur_improve::scip_free)
 {
 	return SCIP_OKAY;
 }
 
 /** initialization method of primal heuristic (called after problem was transformed) */
-SCIP_DECL_HEURINIT(heur_voronoi::scip_init)
+SCIP_DECL_HEURINIT(heur_improve::scip_init)
 {
 	ProbDataWP*   probdata;
 
@@ -52,7 +52,7 @@ SCIP_DECL_HEURINIT(heur_voronoi::scip_init)
 }
 
 /** deinitialization method of primal heuristic (called before transformed problem is freed) */
-SCIP_DECL_HEUREXIT(heur_voronoi::scip_exit)
+SCIP_DECL_HEUREXIT(heur_improve::scip_exit)
 {
 	/* free everything which was created in scip_init */
 	release_graph(scip, &graph);
@@ -66,7 +66,7 @@ SCIP_DECL_HEUREXIT(heur_voronoi::scip_exit)
  *  The primal heuristic may use this call to initialize its branch and bound specific data.
  *
  */
-SCIP_DECL_HEURINITSOL(heur_voronoi::scip_initsol)
+SCIP_DECL_HEURINITSOL(heur_improve::scip_initsol)
 {
 	return SCIP_OKAY;
 }
@@ -76,22 +76,30 @@ SCIP_DECL_HEURINITSOL(heur_voronoi::scip_initsol)
  *  This method is called before the branch and bound process is freed.
  *  The primal heuristic should use this call to clean up its branch and bound data.
  */
-SCIP_DECL_HEUREXITSOL(heur_voronoi::scip_exitsol)
+SCIP_DECL_HEUREXITSOL(heur_improve::scip_exitsol)
 {
 	return SCIP_OKAY;
 }
 
 
 /** execution method of primal heuristic */
-SCIP_DECL_HEUREXEC(heur_voronoi::scip_exec)
+SCIP_DECL_HEUREXEC(heur_improve::scip_exec)
 {  /*lint --e{715}*/
+
+	// Teste ob es eine neue zulässige Lösung gibt.
+	SCIPgetNSols(scip);
+
+	// Speichere diese
+	SCIP_SOL* sol = SCIPgetBestSol(scip);
+
+
 
 
 	return SCIP_OKAY;
 }
 
 /** clone method which will be used to copy a objective plugin */
-SCIP_DECL_HEURCLONE(scip::ObjCloneable* heur_voronoi::clone)
+SCIP_DECL_HEURCLONE(scip::ObjCloneable* heur_improve::clone)
 {
-	return new heur_voronoi(scip);
+	return new heur_improve(scip);
 }
